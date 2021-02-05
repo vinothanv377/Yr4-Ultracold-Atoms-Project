@@ -3,16 +3,17 @@
 
 ''' Assignment 3 (working with files; compulsory)
 
+Random rubbish!!!!! thtyes nsrihetijh rwiotjiotgjg itjkjgrkjipbjbijhbj
+Random rubbish!!!!! thtyes nsrihetijh rwiotjiotgjg itjkjgrkjipbjbijhbj
+Random rubbish!!!!! thtyes nsrihetijh rwiotjiotgjg itjkjgrkjipbjbijhbj
+Random rubbish!!!!! thtyes nsrihetijh rwiotjiotgjg itjkjgrkjipbjbijhbj
+
 Assignment Tasks: 3
 
 Aim:
     Read experimental data from files and plot data averaged over
     the multiple experimental runs.
 
-Restrictions:
-    Do not change anything outside TODO blocks.
-    Do not use import, scatter
-    Do not add pylint directives.
 
 Guidance:
     Data files are compressed in a single zip file. All data files have

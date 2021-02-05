@@ -8,6 +8,11 @@ Random rubbish!!!!! thtyes nsrihetijh rwiotjiotgjg itjkjgrkjipbjbijhbj
 Random rubbish!!!!! thtyes nsrihetijh rwiotjiotgjg itjkjgrkjipbjbijhbj
 Random rubbish!!!!! thtyes nsrihetijh rwiotjiotgjg itjkjgrkjipbjbijhbj
 
+Random rubbish!!!!! thtyes nsrihetijh rwiotjiotgjg itjkjgrkjipbjbijhbj
+Random rubbish!!!!! thtyes nsrihetijh rwiotjiotgjg itjkjgrkjipbjbijhbj
+Random rubbish!!!!! thtyes nsrihetijh rwiotjiotgjg itjkjgrkjipbjbijhbj
+Random rubbish!!!!! thtyes nsrihetijh rwiotjiotgjg itjkjgrkjipbjbijhbj
+
 Assignment Tasks: 3
 
 Aim:
@@ -15,14 +20,6 @@ Aim:
     the multiple experimental runs.
 
 
-Guidance:
-    Data files are compressed in a single zip file. All data files have
-    identical structure (number of lines, etc.).
-    Download the zip file, extract the data files into a sub-folder in
-    your u:/Python folder.
-    Load one of the files into the Spyder editor to understand its structure.
-
-    Task 1:
         Define identifiers used as constants to be used throughout the script,
         including inside functions.
         - Set the data folder name. Ensure cross-platform compatibility

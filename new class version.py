@@ -18,12 +18,12 @@ class Particle:
     
     def __init__(self, x, y, z, vx, vy, vz, radius=0.01, mass=10**(-26), styles=None):
         
-        self.r = np.array((x, y, z))
-        self.v = np.array((vx, vy, vz))
+        self.r = np.array((x, y, z)) # array that stores the current postion of the particle
+        self.v = np.array((vx, vy, vz))# array that stores the current velocity of the particle
         self.radius = radius
         self.mass= mass
     
-    #setting things for the positions
+    #functions for setting things for the positions
     @property
     def x(self):
         return self.r[0]
@@ -43,7 +43,7 @@ class Particle:
     def z(self, value):
         self.r[2] = value
     
-    #setting things for the velocities
+    #fucntions for setting things for the velocities
     @property
     def vx(self):
         return self.v[0]
@@ -62,7 +62,8 @@ class Particle:
     @vz.setter
     def vz(self, value):
         self.v[2] = value
-        
+    
+    # the change in position for the particle due to drift movement after time step   
     def drift(self, dt):
         self.x += self.vx*dt
         self.y += self.vy*dt
@@ -70,7 +71,7 @@ class Particle:
         
     def set_rand_rv(self, L, T): #here, L is the cube length, T is the temperature
         self.r = np.random.random(3)*L #sets each r value to a random value between 0 and L
-        self.v = np.random.normal(0, np.sqrt(k*T/self.mass), 3) 
+        self.v = np.random.normal(0, np.sqrt(k*T/self.mass), 3)
         #setting velocities to random values selected from a Gaussian (Maxwell-Boltzmann) distribution, mean 0, standard deviation sqrt(kT/m) 
         #also thinking maybe this should be in another class? Like 'Environment' or something, where we specify the cube length
  
@@ -134,6 +135,8 @@ def Plot_trajectory(Nt):
         Particle.drift(test_p, dt)
         ax1.scatter(test_p1.x, test_p1.y, c='r')
         Particle.drift(test_p1, dt)
+    print(test_p.v)
+    print(test_p1.v)
     print(np.sqrt(test_p.vx**2 + test_p.vy**2 + test_p.vz**2))
     print(np.sqrt(test_p1.vx**2 + test_p1.vy**2 + test_p1.vz**2))
           

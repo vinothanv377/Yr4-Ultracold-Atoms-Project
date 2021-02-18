@@ -91,11 +91,12 @@ class Environment:
         r = [[],[],[]] #creating empty arrays to store the r and v values in
         v = [[],[],[]]
         save_images = False #set to true if you want to save all the images as they are made
+        create_graph = False #set to true if you want to plot the xy positions for each time step
         
         for n in range(N):
             #looping through the number of particles, creating a particle for each and setting the r and v to be random (gaussian) values
             test_p = Particle(1,1,1,1,1,1)
-            Particle.set_rand_rv(test_p,self.L,self.Ti, self.omega_x, self.omega_y, self.omega_z)
+            Particle.set_rand_rv(test_p,self.Ti, self.omega_x, self.omega_y, self.omega_z)
             #appending the initial r and v values into these arrays
             r[0].append(test_p.r[0])
             r[1].append(test_p.r[1])
@@ -103,17 +104,20 @@ class Environment:
             v[0].append(test_p.v[0])
             v[1].append(test_p.v[1])
             v[2].append(test_p.v[2])
+        plt.hist(r[0], bins=100)
         for t in range(Nt): #looping through all the timesteps
             #create a graph
-            fig = plt.figure(figsize=(3,3))
-            gs = gridspec.GridSpec(1,1)
-            ax1 = fig.add_subplot(gs[0])
-            ax1.set_ylim(-self.L/2,self.L/2) #sets the dimensions of the axes to be the same as the box
-            ax1.set_xlim(-self.L/2,self.L/2)
-            ax1.text(0.4,-0.4, f'{t+1}') #print the timestep number on the graph
+            if create_graph:
+                fig = plt.figure(figsize=(3,3))
+                gs = gridspec.GridSpec(1,1)
+                ax1 = fig.add_subplot(gs[0])
+                ax1.set_ylim(-self.L/2,self.L/2) #sets the dimensions of the axes to be the same as the box
+                ax1.set_xlim(-self.L/2,self.L/2)
+                ax1.text(self.L/3,-self.L/3, f'{t+1}') #print the timestep number on the graph
             for n in range(N): #loop through all the particles for the specific timestep
                 #plot the x y positions of the particles
-                ax1.scatter(r[0][n], r[1][n], c='b')
+                if create_graph:
+                    ax1.scatter(r[0][n], r[1][n], c='b', s=2)
                 #these following lines play the role of the drift function- updates r values in the arrays
                 r[0][n] += v[0][n]*dt
                 r[1][n] += v[1][n]*dt
@@ -124,7 +128,10 @@ class Environment:
                 v[2][n] += -(self.omega_z**2)*r[2][n]*dt
             if save_images: #this will save all the images into the specified file, labelled by their timesteps
                 plt.savefig(r'C:\\Users\Bethan\Documents\evaporative cooling\test sim\images\timestep{t}.png'.format(t=t))
-
+        
+        
+        #attempting to plot a histogram of the last value
+        plt.hist(r[0], bins=50)
                         
-env = Environment(1,10**-6,20,20,20)
-env.test_sim(15,5,0.05)
+env = Environment(0.1,10**-6,20,20,20) #here L= 10cm, T = 1uK, note these freq are the omega, included the 2pi factors 
+env.test_sim(100,10,0.05)

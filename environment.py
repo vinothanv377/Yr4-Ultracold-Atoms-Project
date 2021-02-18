@@ -6,24 +6,31 @@ Created on Sun Feb 14 15:39:41 2021
 """
 
 
-import numpy as np
-from scipy.constants import k
-import matplotlib
+#import numpy as np
+#from scipy.constants import k
+#import matplotlib 
 import matplotlib.pyplot as plt
-import scipy as scipy
-from scipy import optimize
+#import scipy as scipy
+#from scipy import optimize
 from matplotlib import gridspec
+from matplotlib.animation import FuncAnimation
+import imageio
+import os
 
 from particle import Particle   
      
 class Environment: 
     """A class representing the environment to put the particles in"""
     
-    def __init__(self, L, Ti): 
+    def __init__(self, L, Ti, omega_x, omega_y, omega_z): 
     #just got initial temperature and length of cube side for now, can add in more parameters as needed
         self.L = L
         self.Ti = Ti
-        
+        self.omega_x = omega_x
+        self.omega_y = omega_y
+        self.omega_z = omega_z
+        self.particles = []
+            
     def get_details(self): #this is just to replace the following code until I work out why it's not working
         print(f'Side length is {self.L}')
         print(f'Initial Temperature is {self.Ti}')
@@ -63,7 +70,7 @@ class Environment:
         for n in range(N):
             test_p = Particle(1,1,1,1,1,1)
             Particle.set_rand_rv(test_p,self.L,self.Ti)
-            print(test_p.r) #just to check we were looping through okay
+            #print(test_p.r) #just to check we were looping through okay
             for i in range(Nt):
                 #ax1.text(test_p.x,test_p.y, f'{i}') # this part doesn't plot scatter points, it plots the time index where the particle was, mostly for me to see the direction of movement
                 ax1.scatter(test_p.x, test_p.y)
@@ -74,6 +81,50 @@ class Environment:
     #THINGS TO FIX- ideally want to have all the dots related to one particle be the
     #same colour, and also the particles aren't trapped in the box!! maybe incorporate 
     #the bouncing in the drift function? as that's the part where they actually move
+    
+    def test_sim(self, N, Nt, dt):
+        '''N is the number of particles you want to simulate, Nt is the number of timesteps to 
+        loop through and dt is the size of the timestep.'''
+        #okay so I was having issues with the loops using the test_p object so I've resorted to arrays for now and it's clunky as hell- not a fan but there you go
+        #completely defeats the point of all the functions I had written in the particle class
+        
+        r = [[],[],[]] #creating empty arrays to store the r and v values in
+        v = [[],[],[]]
+        save_images = False #set to true if you want to save all the images as they are made
+        
+        for n in range(N):
+            #looping through the number of particles, creating a particle for each and setting the r and v to be random (gaussian) values
+            test_p = Particle(1,1,1,1,1,1)
+            Particle.set_rand_rv(test_p,self.L,self.Ti, self.omega_x, self.omega_y, self.omega_z)
+            #appending the initial r and v values into these arrays
+            r[0].append(test_p.r[0])
+            r[1].append(test_p.r[1])
+            r[2].append(test_p.r[2])
+            v[0].append(test_p.v[0])
+            v[1].append(test_p.v[1])
+            v[2].append(test_p.v[2])
+        for t in range(Nt): #looping through all the timesteps
+            #create a graph
+            fig = plt.figure(figsize=(3,3))
+            gs = gridspec.GridSpec(1,1)
+            ax1 = fig.add_subplot(gs[0])
+            ax1.set_ylim(-self.L/2,self.L/2) #sets the dimensions of the axes to be the same as the box
+            ax1.set_xlim(-self.L/2,self.L/2)
+            ax1.text(0.4,-0.4, f'{t+1}') #print the timestep number on the graph
+            for n in range(N): #loop through all the particles for the specific timestep
+                #plot the x y positions of the particles
+                ax1.scatter(r[0][n], r[1][n], c='b')
+                #these following lines play the role of the drift function- updates r values in the arrays
+                r[0][n] += v[0][n]*dt
+                r[1][n] += v[1][n]*dt
+                r[2][n] += v[2][n]*dt
+                #these following lines play the role of the potential_v_drift function- updates v values in the arrays
+                v[0][n] += -(self.omega_x**2)*r[0][n]*dt 
+                v[1][n] += -(self.omega_y**2)*r[1][n]*dt
+                v[2][n] += -(self.omega_z**2)*r[2][n]*dt
+            if save_images: #this will save all the images into the specified file, labelled by their timesteps
+                plt.savefig(r'C:\\Users\Bethan\Documents\evaporative cooling\test sim\images\timestep{t}.png'.format(t=t))
+
                         
-env = Environment(1,10**-6)
-env.Create_many_particles(1,100,0.05)
+env = Environment(1,10**-6,20,20,20)
+env.test_sim(15,5,0.05)

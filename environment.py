@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import scipy as scipy
 from scipy import optimize
 from matplotlib import gridspec
+from mpl_toolkits import mplot3d
 
 from particle import Particle   
      
@@ -74,6 +75,41 @@ class Environment:
     #THINGS TO FIX- ideally want to have all the dots related to one particle be the
     #same colour, and also the particles aren't trapped in the box!! maybe incorporate 
     #the bouncing in the drift function? as that's the part where they actually move
+    
+    def Create_many_particles_3D(self, N, Nt, dt):
+        #this allows multiple particles to be created, can specify the time step and total time loop as well
+        #the plotting part was mostly to visually confirm what was happening!
+        #How applicable any of this is to the actual simulation is highly questionable
+        fig = plt.figure(figsize=(5,5))
+        gs = gridspec.GridSpec(1,1)
+        ax1 = fig.add_subplot(gs[0], projection='3d')
+        ax1.set_ylim(-0.5,0.5)
+        ax1.set_xlim(-0.5,0.5)
+        ax1.set_zlim(-0.5,0.5)
+        def f(x, y):
+            return np.sin(np.sqrt(x ** 2 + y ** 2))
+
+        x = np.linspace(-0.5, 0.5, 30)
+        y = np.linspace(-0.5, 0.5, 30)
+
+        X, Y = np.meshgrid(x, y)
+        Z = f(X, Y)
+        for n in range(N):
+            test_p = Particle(1,1,1,1,1,1)
+            Particle.set_rand_rv(test_p,self.L,self.Ti)
+            print(test_p.r) #just to check we were looping through okay
+            for i in range(Nt):
+                #ax1.text(test_p.x,test_p.y, f'{i}') # this part doesn't plot scatter points, it plots the time index where the particle was, mostly for me to see the direction of movement
+                ax1.scatter3D(test_p.x, test_p.y, test_p.z)
+                ax1.contour3D(X, Y, Z)
+                Particle.drift(test_p, dt)
+                Particle.potential_v_change(test_p, 2, 2, 2,dt)
+    #definitely not the way to actually do the simulation i don't think, it was mainly 
+    #just to check everything was working so far
+    #THINGS TO FIX- ideally want to have all the dots related to one particle be the
+    #same colour, and also the particles aren't trapped in the box!! maybe incorporate 
+    #the bouncing in the drift function? as that's the part where they actually move
                         
 env = Environment(1,10**-6)
 env.Create_many_particles(1,100,0.05)
+env.Create_many_particles_3D(1,100,0.05)

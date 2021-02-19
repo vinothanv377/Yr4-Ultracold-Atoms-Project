@@ -13,6 +13,7 @@ from matplotlib import gridspec
 from mpl_toolkits import mplot3d
 import scipy.stats
 
+np.random.seed(17)
 
 ####################################################################################
 
@@ -124,12 +125,12 @@ class Environment:
         
         to_plot = [] #empty array 
         for i in self.particles:
-            to_plot.append(i.x) #select which values to plot, and append to the array
+            to_plot.append(i.vx) #select which values to plot, and append to the array
         fig = plt.figure(figsize=(8,3))
         gs = gridspec.GridSpec(1,1)
         ax2 = fig.add_subplot(gs[0])
-        ax2.set_xlim(-0.01,0.01)
-        ax2.set_xlabel('x Position of particles')
+        ax2.set_xlim(-0.02,0.02)
+        ax2.set_xlabel('x velocity component of particles')
         ax2.text(-0.009, N/40, '{}'.format(label))
         #set title with the simulation parameters to keep track of the data
         ax2.set_title(f'T={self.Ti}, omega={(self.omega_x, self.omega_y, self.omega_z)}, N={N}, Nt={Nt}, dt= {dt}')
@@ -164,7 +165,7 @@ class Environment:
         
         for t in range(Nt): #loop through the timesteps
             if create_graph3d:
-                fig = plt.figure(figsize=(3,3))
+                fig = plt.figure(figsize=(10,10))
                 gs = gridspec.GridSpec(1,1)
                 ax1 = fig.add_subplot(gs[0], projection='3d') # making the plot 3D capable 
                 ax1.set_ylim(-self.L/2,self.L/2) 
@@ -183,7 +184,7 @@ class Environment:
                 #plot the positions if needed
                 if create_graph3d:
                     ax1.scatter3D(i.x, i.y, i.z, c='b', s=2)
-                    ax1.view_init(0, 60)
+                    ax1.view_init(30, 35)
                 if create_graph2d:
                     ax1.scatter(i.x, i.y, c='b', s=2)
                 #alter the positions of the particles according to their velocities
@@ -192,7 +193,7 @@ class Environment:
                 Particle.potential_v_change(i, self.omega_x, self.omega_y, self.omega_z, dt)
                 
             if save_images: #save the graphs as they are created to the specified file
-                 plt.savefig(r'C:\\Users\Bethan\Documents\evaporative cooling\test sim\images\timestep{t}.png'.format(t=t))
+                 plt.savefig(r'C:\\Users\Bethan\Documents\evaporative cooling\test sim\withpot_3035\timestep{t}.png'.format(t=t))
                  
         if create_histograms:
             self.histogram(N, Nt, dt, 't = Ntdt') #create a histogram of the final values
@@ -201,6 +202,6 @@ class Environment:
     
     
                         
-env = Environment(0.1,10**-6,20,20,20)
+env = Environment(0.01,10**-6,20,20,20)
 env.Create_Particle(1000)
-env.time_evolve(0.01,50, 1000)
+env.time_evolve(0.01, 50, 1000)

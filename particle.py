@@ -76,14 +76,13 @@ class Particle:
         Sets the velocity components of the particles to a random value from a Maxwell-Boltzmann 
         distribution, with mean 0 and standard deviation sqrt(kT/m).'''
         self.v = np.random.normal(0, np.sqrt(k*T/self.mass), 3)
-        self.r = np.array((1.0,1.0,1.0))#np.random.normal(0, np.sqrt((k*T)/(self.mass*omega_y**2)), 3)
+        self.r = np.array((1.0,1.0,1.0)) 
+        #so this is a bit weird, not sure why but for some reason the following code sets r components
+        #as int unless I put the last line in where the components are given as floats
         self.r[0] = np.random.normal(0, np.sqrt((k*T)/(self.mass*(omega_x**2))))
         self.r[1] = np.random.normal(0, np.sqrt((k*T)/(self.mass*omega_y**2)))
         self.r[2] = np.random.normal(0, np.sqrt((k*T)/(self.mass*omega_z**2)))
-        #print('%.20f' % self.x)
-        #print(np.random.normal(0, np.sqrt((k*T)/(self.mass*omega_x**2))))
-        #print(self.r[0].dtype)
-        #print(self.vx.dtype)
+
 
     def potential_v_change(self, omega_x, omega_y, omega_z, dt):
         self.vx += -(omega_x**2)*self.x*dt

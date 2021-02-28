@@ -14,7 +14,7 @@ from mpl_toolkits import mplot3d
 import scipy.stats
 
 #comment this in to set the random number generators, keep it repeatable
-#np.random.seed(17)
+np.random.seed(18)
 
 ####################################################################################
 
@@ -156,11 +156,12 @@ class Environment:
         '''function that mimics the effects of evaporative cooling. This function 
         selectively chooses partiles at the end of the distribution to be removed 
         from the ensamble of partilces.'''
-        t = float(0)#ensures the value for t is treated as a float to avoid compatibility conditons
+        
+        t = float(0) #ensures the value for t is treated as a float to avoid compatibility conditons
         r_vals = [] #defining an empty array for the magnitude radius values
         for i in self.particles: #looping through all the partilces in the system
             r_vals.append(Particle.mag_r(i)) #to append the magnitude radius to the r_vals array
-        cut_off = max(r_vals) #setting the cut-off point for minimum radius from the paricles as an arbitrary max value of the r_vals
+        cut_off = max(r_vals) #setting the cut-off point for minimum radius from the paricles as an arbitrary max value of the r_vals 
         evap_times = np.linspace(0, Nt, int(Nt/(therm_time-1)), endpoint=True) #defining the specific timesteps we want to do evaporative cooling at
         print(f'The Evap Times are {evap_times}')
         print(f'Starting time t ={t}')
@@ -169,34 +170,28 @@ class Environment:
             if np.any(t == evap_times): #if statement, a conditon to see t is equal to any of the evap_times
                 print('yes - fallen on a evap timestep')
                 print(t)
-                for i in self.particles: #looping through all partilces
+                for i in self.particles: #looping through all partilces 
                     if Particle.mag_r(i) >= cut_off: #if statement, a condition to see if magnitude radius of the partilce is greater than or equal to the cut_off radius
                         print('Evaporated')
                         print(f'I had a postion r of {Particle.mag_r(i)}')
-                        i.x = 0 #if the statment is satisified we set the position of the particle to an arbirtary position, to mimic the effects of evaporative cooling
+                        i.x = 0 #if the statment is satisified we set the position of the particle to an arbirtary position, to mimic the effects of evaporative cooling 
                         i.y = 0 #""
                         i.z = 0 #""
+                        
                         
                     else: #else statment, in case the if statement above is not stisfied
                         print('Too Low') #if the statment is not satsfied then nothing happens to the partilce and a print statment is issued
                         #print(i.r)
-                cut_off = cut_off*rate_of_evap #outside of this if-else statment, once all partilces have been looped/checked against the statment, we redefine the cut-off radius at a rate defined in the funtion variable
+                cut_off = cut_off*rate_of_evap #outside of this if-else statment, once all partilces have been looped/checked against the statment, we redefine the cut-off radius at a rate defined in the funtion variable  
                 print(f'Setting new cut-off as {cut_off}')
                 t+= 1 #ensures that time-steps progress by one every full cycle of checks 
-            else: # else statement, in case the t==evap_times if condition isn't met
+            else:# else statement, in case the t==evap_times if condition isn't met
                 print('not yet') #if the statement isn't statisifed nothing happens to the particle and a print statement is issued
                 print(t)
-                t+=1 #ensures that time-steps progress by one every full cycle of checks
+                t+=1 #ensures that time-steps progress by one every full cycle of checks 
                 
                  
-
-            
-            
-            
-            
-        
-            
-    def time_evolve(self,dt,Nt,N):
+    def time_evolve_standard(self,dt,Nt,N):
         '''Runs the simulation through Nt timesteps, of individual size dt. For each timestep
         alters the positions of the particles according to their velocities. Then 
         changes the velocities of the particles to account for the influence of the trapping 
@@ -247,8 +242,128 @@ class Environment:
                 #alter the positions of the particles according to their velocities
                 Particle.drift(i, dt) 
                 #alter the velocities of the particles, account for the trapping potential
-                Particle.potential_v_change(i, self.omega_x, self.omega_y, self.omega_z, dt)
+                #Particle.potential_v_change(i, self.omega_x, self.omega_y, self.omega_z, dt)
                 
+            sigmadt = np.sqrt(np.var(sigma_variable)) #calculate the sd of the r/v values for this timestep
+            sigma.append(sigmadt) #append it to the empty array created at the start
+                
+            if save_images: #save the graphs as they are created to the specified file
+                 plt.savefig(r'C:\\Users\Bethan\Documents\evaporative cooling\test sim\trapthennot\timestep{t}.png'.format(t=t))
+                 
+        if create_histograms:
+            self.histogram(N, Nt, dt, 't = Ntdt') #create a histogram of the final value
+        
+        #create graph, and plot the values in the 'sigma' array against time
+        if plot_sigma:
+            fig = plt.figure(figsize=(8,3))
+            gs = gridspec.GridSpec(1,1)
+            ax = fig.add_subplot(gs[0])
+            ax.set_xlabel('Time /s')
+            ax.set_ylabel('Sigma_x /m')
+            time = np.arange(len(sigma))*dt
+            ax.plot(time, sigma , color='g')
+            #midpoint = (np.max(sigma)-np.min(sigma))/2 +np.min(sigma)
+            #ax.axvline(x=time[np.argmax(sigma[0:1000])], ymin=0, ymax= 1, linestyle='--', color='k')
+            #ax.axvline(x=time[np.argmax(sigma)], ymin=0, ymax= 1, linestyle='--', color='b')
+            #ax.axvline(x=time[np.argmin(sigma)], ymin=0, ymax= 1, linestyle='--', color='r')
+            #ax.axhline(y= midpoint, xmin=0, xmax= 1, linestyle='--', color='m')
+            #print(f'Max sigma value: {np.max(sigma)} (blue)')
+            #print(f'Min sigma value: {np.min(sigma)} (red)')
+            #print(f'Oscillating around {midpoint} (pink)')
+            #print(f'Time value for first maxima (black): {time[np.argmax(sigma[0:1000])]}')
+            #print(f'Time value for maxima (blue): {time[np.argmax(sigma)]}')
+            
+
+###################################################################################################################################################################            
+
+
+    def time_evolve_evap(self,dt,Nt,N,therm_time,rate_of_evap):
+        '''Runs the simulation through Nt timesteps, of individual size dt. For each timestep
+        alters the positions of the particles according to their velocities. Then 
+        changes the velocities of the particles to account for the influence of the trapping 
+        potential. Plots histograms labelled with the simulation parameters both before and
+        after the simulation.
+        This simulation also takes into account evaporative cooling effects and with a defined choice
+        of the minimum spactial distribution all particles outside of the minimum are evaporatively
+        cooled. 
+        Can plot 2D or 3D graphs of the particle positions, and save these locally if desired.'''
+        
+        create_graph2d = False #set to true to plot a xy slice of the particle positions for each time step
+        create_graph3d = True #set to true to plot the particle positions in 3D for each time step
+        save_images = False #set to true to save the associated images to the specified file path
+        create_histograms = True #set to true to plot histograms before and after the time loop
+        plot_sigma = False #set to true to plot the standard deviation of r or v over time
+        
+        sigma = [] #creating an empty array to contain the standard deviation values
+        sigma_variable = [] #creating an empty array to store the r/v values from which to calc an sd
+        
+        t = float(0) #ensures the value for t is treated as a float to avoid compatibility conditons
+        r_vals = [] #defining an empty array for the magnitude radius values
+        for i in self.particles: #looping through all the partilces in the system
+            r_vals.append(Particle.mag_r(i))  #to append the magnitude radius to the r_vals array
+        print(r_vals)
+        cut_off = max(r_vals) #setting the cut-off point for minimum radius from the paricles as an arbitrary max value of the r_vals
+        evap_times = np.linspace(0, Nt, int(Nt/(therm_time-1)), endpoint=True)#defining the specific timesteps we want to do evaporative cooling at
+        print(int(Nt/(therm_time-1)))
+        print(f'The Evap Times are {evap_times}')
+        print(f'Starting time t ={t}')
+        print(f'Starting Cut-Off is {cut_off}')
+        
+        if create_histograms:
+            self.histogram(N, Nt, dt, 't = 0') #create a histogram of the initial values
+        
+        while t != Nt: #loop through the timesteps
+            if create_graph3d:
+                fig = plt.figure(figsize=(10,10))
+                gs = gridspec.GridSpec(1,1)
+                ax1 = fig.add_subplot(gs[0], projection='3d') # making the plot 3D capable 
+                ax1.set_ylim(-self.L/2,self.L/2) 
+                ax1.set_xlim(-self.L/2,self.L/2)
+                ax1.set_zlim(-self.L/2,self.L/2)
+                ax1.text(self.L/3,-self.L/3, self.L/3, f'{t+1}') # stating on the graph the time-step of the simulation graph
+            if create_graph2d:
+                fig = plt.figure(figsize=(3,3))
+                gs = gridspec.GridSpec(1,1)
+                ax1 = fig.add_subplot(gs[0])
+                ax1.set_ylim(-self.L/2,self.L/2) #sets the dimensions of the axes to be the same as the box
+                ax1.set_xlim(-self.L/2,self.L/2)
+                ax1.text(self.L/3,-self.L/3, f'{t+1}') #print the timestep number on the graph
+                
+            for i in self.particles: #for each timestep, loop through the particles in the array
+                    #plot the positions if needed
+                    if create_graph3d:
+                        ax1.scatter3D(i.x, i.y, i.z, c='b', s=2)
+                        ax1.view_init(30, 35)
+                    if create_graph2d:
+                        ax1.scatter(i.x, i.y, c='b', s=2)
+                    
+                    sigma_variable.append(i.x) #append the r/v values into the empty array
+        
+                    #alter the positions of the particles according to their velocities
+                    Particle.drift(i, dt) 
+                    #alter the velocities of the particles, account for the trapping potential
+                    Particle.potential_v_change(i, self.omega_x, self.omega_y, self.omega_z, dt)
+                    
+            if np.any(t == evap_times): #if statement, a conditon to see t is equal to any of the evap_times
+                print('yes - fallen on a evap timestep')
+                print(t)
+                for i in self.particles: #looping through all partilces
+                    if Particle.mag_r(i) >= cut_off: #if statement, a condition to see if magnitude radius of the partilce is greater than or equal to the cut_off radius
+                        print('Evaporated')
+                        print(f'I had a postion r of {Particle.mag_r(i)}')
+                        i.x = 0.004 #if the statment is satisified we set the position of the particle to an arbirtary position, to mimic the effects of evaporative cooling
+                        i.y = 0.004 #""
+                        i.z = 0.004 #""
+                    else: #else statment, in case the if statement above is not stisfied
+                        print('Too Low')  #if the statment is not satsfied then nothing happens to the partilce and a print statment is issued
+                        #print(i.r)
+                cut_off = cut_off*rate_of_evap #outside of this if-else statment, once all partilces have been looped/checked against the statment, we redefine the cut-off radius at a rate defined in the funtion variable
+                print(f'Setting new cut-off as {cut_off}')
+                t+= 1 #ensures that time-steps progress by one every full cycle of checks 
+            else: # else statement, in case the t==evap_times if condition isn't met
+                print('not yet')
+                print(t)
+                t+=1 #ensures that time-steps progress by one every full cycle of checks 
                 
                 
             sigmadt = np.sqrt(np.var(sigma_variable)) #calculate the sd of the r/v values for this timestep
@@ -279,11 +394,11 @@ class Environment:
             #print(f'Oscillating around {midpoint} (pink)')
             #print(f'Time value for first maxima (black): {time[np.argmax(sigma[0:1000])]}')
             #print(f'Time value for maxima (blue): {time[np.argmax(sigma)]}')
-            
 
     
                         
 env = Environment(0.01,10**-6,60,60,60)
-env.Create_Particle(10)
-env.time_evolve(0.0001, 200, 10)
-env.evap_cooling(10, 100, 0.75)
+env.Create_Particle(100)
+env.time_evolve_standard(0.001, 100, 100)
+env.time_evolve_evap(0.001, 100, 100, 10, 0.75)
+#env.evap_cooling(10, 100, 0.75)

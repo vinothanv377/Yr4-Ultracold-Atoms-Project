@@ -13,8 +13,9 @@ from matplotlib import gridspec
 from mpl_toolkits import mplot3d
 import scipy.stats
 
+
 #comment this in to set the random number generators, keep it repeatable
-np.random.seed(18)
+np.random.seed(19)
 
 ####################################################################################
 
@@ -129,23 +130,35 @@ class Environment:
         '''Function to plot a histogram with associated Gaussian distribution.
         Displays the mean and standard deviation of this Gaussian distribution on the graph.'''
         
-        to_plot = [] #empty array 
+        to_plot = [] #empty array
         for i in self.particles:
-            to_plot.append(i.x) #select which values to plot, and append to the array
+            radius = Particle.mag_r(i)
+            to_plot.append(radius) #select which values to plot, and append to the array
+            #to_plot.append(i.vx) #select which values to plot, and append to the array
         fig = plt.figure(figsize=(8,3))
         gs = gridspec.GridSpec(1,1)
         ax2 = fig.add_subplot(gs[0])
-        ax2.set_xlim(-0.02,0.02)
-        ax2.set_xlabel('x position of particles')
-        ax2.text(-0.015, N/40, '{}'.format(label))
+        
+        ax2.set_xlabel('radius of particles')
         #set title with the simulation parameters to keep track of the data
         ax2.set_title(f'T={self.Ti}, omega={(self.omega_x, self.omega_y, self.omega_z)}, N={N}, Nt={Nt}, dt= {dt}')
         
-        result1 = ax2.hist(to_plot, bins=100) 
+        result1 = ax2.hist(to_plot, bins=100)
         mean1 = np.mean(to_plot)
         sigma1 = np.sqrt(np.var(to_plot))
-        ax2.text(0.01,N/40, 'mean = {:.3g}'.format(mean1))
-        ax2.text(0.01,N/45, 'sd = {:.3g}'.format(sigma1))
+        ax2.set_xlim(0,0.001)
+        ax2.set_ylim(0, 350)
+        ax2.text(0.00001, 320, '{}'.format(label))
+        ax2.text(0.0004, 320, 'mean = {:.3g}'.format(mean1))
+        ax2.text(0.0004, 290, 'sd = {:.3g}'.format(sigma1))
+        #ax2.set_xlim(-0.06,0.06)
+        #ax2.set_ylim(0, 360)
+        #ax2.text(-0.04, 320, '{}'.format(label))
+        #ax2.text(0.004, 320, 'mean = {:.3g}'.format(mean1))
+        #ax2.text(0.004, 290, 'sd = {:.3g}'.format(sigma1))
+        #ax2.text(-max(result1[1])*0.25, max(result1[0])*0.95, '{}'.format(label))
+        #ax2.text(max(result1[1])*0.75, max(result1[0])*0.95, 'mean = {:.3g}'.format(mean1))
+        #ax2.text(max(result1[1])*0.75, max(result1[0])*0.85, 'sd = {:.3g}'.format(sigma1))
         x1 = np.linspace(min(to_plot), max(to_plot), 100)
         dx1 = result1[1][1] - result1[1][0]
         scale1 = len(to_plot)*dx1
@@ -242,7 +255,7 @@ class Environment:
                 #alter the positions of the particles according to their velocities
                 Particle.drift(i, dt) 
                 #alter the velocities of the particles, account for the trapping potential
-                #Particle.potential_v_change(i, self.omega_x, self.omega_y, self.omega_z, dt)
+                Particle.potential_v_change(i, self.omega_x, self.omega_y, self.omega_z, dt)
                 
             sigmadt = np.sqrt(np.var(sigma_variable)) #calculate the sd of the r/v values for this timestep
             sigma.append(sigmadt) #append it to the empty array created at the start
@@ -289,8 +302,8 @@ class Environment:
         Can plot 2D or 3D graphs of the particle positions, and save these locally if desired.'''
         
         create_graph2d = False #set to true to plot a xy slice of the particle positions for each time step
-        create_graph3d = True #set to true to plot the particle positions in 3D for each time step
-        save_images = False #set to true to save the associated images to the specified file path
+        create_graph3d = False #set to true to plot the particle positions in 3D for each time step
+        save_images = True #set to true to save the associated images to the specified file path
         create_histograms = True #set to true to plot histograms before and after the time loop
         plot_sigma = False #set to true to plot the standard deviation of r or v over time
         
@@ -308,6 +321,7 @@ class Environment:
         print(f'The Evap Times are {evap_times}')
         print(f'Starting time t ={t}')
         print(f'Starting Cut-Off is {cut_off}')
+        evap_atoms = []
         
         if create_histograms:
             self.histogram(N, Nt, dt, 't = 0') #create a histogram of the initial values
@@ -354,11 +368,20 @@ class Environment:
                         i.x = 0.004 #if the statment is satisified we set the position of the particle to an arbirtary position, to mimic the effects of evaporative cooling
                         i.y = 0.004 #""
                         i.z = 0.004 #""
+                        atom = Particle(i.x, i.y, i.z, i.vx, i.vy, i.vz)
+                        evap_atoms.append(atom)
+                        self.particles.remove(i)
+                        
+                        
                     else: #else statment, in case the if statement above is not stisfied
                         print('Too Low')  #if the statment is not satsfied then nothing happens to the partilce and a print statment is issued
                         #print(i.r)
                 cut_off = cut_off*rate_of_evap #outside of this if-else statment, once all partilces have been looped/checked against the statment, we redefine the cut-off radius at a rate defined in the funtion variable
                 print(f'Setting new cut-off as {cut_off}')
+                if create_histograms:
+                    self.histogram(N, Nt, dt, f'{t+1}') #create a histogram of the final value
+                if save_images: #save the graphs as they are created to the specified file
+                    plt.savefig(r'D:\Yr 4 Cold Atoms Project\03.03.2021 Yr4-Ultracold-Atoms-Project-vinothanv377-patch-1\Yr4-Ultracold-Atoms-Project-vinothanv377-patch-1\images\radial_positions\timestep{t}.png'.format(t=t))
                 t+= 1 #ensures that time-steps progress by one every full cycle of checks 
             else: # else statement, in case the t==evap_times if condition isn't met
                 print('not yet')
@@ -369,11 +392,15 @@ class Environment:
             sigmadt = np.sqrt(np.var(sigma_variable)) #calculate the sd of the r/v values for this timestep
             sigma.append(sigmadt) #append it to the empty array created at the start
                 
-            if save_images: #save the graphs as they are created to the specified file
-                 plt.savefig(r'C:\\Users\Bethan\Documents\evaporative cooling\test sim\trapthennot\timestep{t}.png'.format(t=t))
+            #if save_images: #save the graphs as they are created to the specified file
+                 #plt.savefig(r'D:\Yr 4 Cold Atoms Project\03.03.2021 Yr4-Ultracold-Atoms-Project-vinothanv377-patch-1\Yr4-Ultracold-Atoms-Project-vinothanv377-patch-1\images\x_position\timestep{t}.png'.format(t=t))
                  
         if create_histograms:
             self.histogram(N, Nt, dt, 't = Ntdt') #create a histogram of the final values
+            print(np.size(evap_atoms))
+        if save_images: #save the graphs as they are created to the specified file
+                 plt.savefig(r'D:\Yr 4 Cold Atoms Project\03.03.2021 Yr4-Ultracold-Atoms-Project-vinothanv377-patch-1\Yr4-Ultracold-Atoms-Project-vinothanv377-patch-1\images\radial_positions\timestep{t}.png'.format(t=t))
+            
         
         #create graph, and plot the values in the 'sigma' array against time
         if plot_sigma:
@@ -398,7 +425,7 @@ class Environment:
     
                         
 env = Environment(0.01,10**-6,60,60,60)
-env.Create_Particle(100)
-env.time_evolve_standard(0.001, 100, 100)
-env.time_evolve_evap(0.001, 100, 100, 10, 0.75)
+env.Create_Particle(10000)
+env.time_evolve_standard(0.001, 100, 10000)
+env.time_evolve_evap(0.001, 100, 10000, 10, 0.8)
 #env.evap_cooling(10, 100, 0.75)

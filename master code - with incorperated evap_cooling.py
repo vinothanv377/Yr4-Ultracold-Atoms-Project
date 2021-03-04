@@ -8,6 +8,7 @@ Created on Sun Feb 14 15:39:41 2021
 
 import numpy as np
 from scipy.constants import k
+
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 from mpl_toolkits import mplot3d
@@ -73,6 +74,10 @@ class Particle:
     def mag_r(self):
         '''Determines the magnitude of the radius for the particle's position'''
         return np.sqrt((self.r[0])**2+(self.r[1])**2+(self.r[2])**2)
+    
+    def mag_vr(self):
+        '''Determines the magnitude of the radial velocity for the particle's position'''
+        return np.sqrt((self.v[0])**2+(self.v[1])**2+(self.v[2])**2)
         
     def drift(self, dt):
         '''Moves the particles through distances appropriate to their velocities.'''
@@ -114,6 +119,8 @@ class Environment:
         self.omega_y = omega_y
         self.omega_z = omega_z
         self.particles = []
+        self.mass = 85*10**(-27)
+        self.temp_array = []
     
     
     def Create_Particle(self, N):
@@ -132,31 +139,31 @@ class Environment:
         
         to_plot = [] #empty array
         for i in self.particles:
-            radius = Particle.mag_r(i)
-            to_plot.append(radius) #select which values to plot, and append to the array
+            hist_r_radius = Particle.mag_r(i)
+            to_plot.append(hist_r_radius) #select which values to plot, and append to the array
             #to_plot.append(i.vx) #select which values to plot, and append to the array
         fig = plt.figure(figsize=(8,3))
         gs = gridspec.GridSpec(1,1)
         ax2 = fig.add_subplot(gs[0])
         
-        ax2.set_xlabel('radius of particles')
+        ax2.set_xlabel('velocities of particles')
         #set title with the simulation parameters to keep track of the data
         ax2.set_title(f'T={self.Ti}, omega={(self.omega_x, self.omega_y, self.omega_z)}, N={N}, Nt={Nt}, dt= {dt}')
         
         result1 = ax2.hist(to_plot, bins=100)
         mean1 = np.mean(to_plot)
         sigma1 = np.sqrt(np.var(to_plot))
-        ax2.set_xlim(0,0.001)
+        ax2.set_xlim(0,0.0011)
         ax2.set_ylim(0, 350)
-        ax2.text(0.00001, 320, '{}'.format(label))
-        ax2.text(0.0004, 320, 'mean = {:.3g}'.format(mean1))
-        ax2.text(0.0004, 290, 'sd = {:.3g}'.format(sigma1))
+        ax2.text(0.00005, 320, '{}'.format(label))
+        ax2.text(0.0006, 320, 'mean = {:.3g}'.format(mean1))
+        ax2.text(0.0006, 290, 'sd = {:.3g}'.format(sigma1))
         #ax2.set_xlim(-0.06,0.06)
         #ax2.set_ylim(0, 360)
         #ax2.text(-0.04, 320, '{}'.format(label))
         #ax2.text(0.004, 320, 'mean = {:.3g}'.format(mean1))
         #ax2.text(0.004, 290, 'sd = {:.3g}'.format(sigma1))
-        #ax2.text(-max(result1[1])*0.25, max(result1[0])*0.95, '{}'.format(label))
+        #ax2.text(max(result1[1])*0.25, max(result1[0])*0.95, '{}'.format(label))
         #ax2.text(max(result1[1])*0.75, max(result1[0])*0.95, 'mean = {:.3g}'.format(mean1))
         #ax2.text(max(result1[1])*0.75, max(result1[0])*0.85, 'sd = {:.3g}'.format(sigma1))
         x1 = np.linspace(min(to_plot), max(to_plot), 100)
@@ -164,6 +171,10 @@ class Environment:
         scale1 = len(to_plot)*dx1
         #plotting a Gaussian of the results, display mean and sd of the data on the graph
         ax2.plot(x1, scipy.stats.norm.pdf(x1, mean1, sigma1)*scale1, color='g')
+        Dist_Temp = (sigma1**2)*self.mass*((self.omega_x)**2)/(k)
+        self.temp_array.append(Dist_Temp)
+        ax2.text(0.0006, 260, 'sd = {:.3g}'.format(Dist_Temp))
+        
         
     def evap_cooling(self, therm_time, Nt, rate_of_evap):
         '''function that mimics the effects of evaporative cooling. This function 
@@ -215,7 +226,7 @@ class Environment:
         create_graph2d = False #set to true to plot a xy slice of the particle positions for each time step
         create_graph3d = False #set to true to plot the particle positions in 3D for each time step
         save_images = False #set to true to save the associated images to the specified file path
-        create_histograms = True #set to true to plot histograms before and after the time loop
+        create_histograms = False#set to true to plot histograms before and after the time loop
         plot_sigma = False #set to true to plot the standard deviation of r or v over time
         
         sigma = [] #creating an empty array to contain the standard deviation values
@@ -298,32 +309,36 @@ class Environment:
         after the simulation.
         This simulation also takes into account evaporative cooling effects and with a defined choice
         of the minimum spactial distribution all particles outside of the minimum are evaporatively
-        cooled. 
+        cooled. therm_time is measure in number of time steps dt how long we leave for rether
         Can plot 2D or 3D graphs of the particle positions, and save these locally if desired.'''
         
         create_graph2d = False #set to true to plot a xy slice of the particle positions for each time step
         create_graph3d = False #set to true to plot the particle positions in 3D for each time step
-        save_images = True #set to true to save the associated images to the specified file path
-        create_histograms = True #set to true to plot histograms before and after the time loop
-        plot_sigma = False #set to true to plot the standard deviation of r or v over time
+        save_images = False #set to true to save the associated images to the specified file path
+        create_histograms = True#set to true to plot histograms before and after the time loop
+        create_histograms_start_finish = False
+        plot_sigma = True#set to true to plot the standard deviation of r or v over time
+        plot_N = True
+        plot_T = True
         
         sigma = [] #creating an empty array to contain the standard deviation values
-        sigma_variable = [] #creating an empty array to store the r/v values from which to calc an sd
+        sigma_variable = []#creating an empty array to store the r/v values from which to calc an sd
+        num_atoms = []
         
         t = float(0) #ensures the value for t is treated as a float to avoid compatibility conditons
         r_vals = [] #defining an empty array for the magnitude radius values
         for i in self.particles: #looping through all the partilces in the system
             r_vals.append(Particle.mag_r(i))  #to append the magnitude radius to the r_vals array
-        print(r_vals)
+        #print(r_vals)
         cut_off = max(r_vals) #setting the cut-off point for minimum radius from the paricles as an arbitrary max value of the r_vals
-        evap_times = np.linspace(0, Nt, int(Nt/(therm_time-1)), endpoint=True)#defining the specific timesteps we want to do evaporative cooling at
+        evap_times = np.linspace(0, Nt, int(Nt/(therm_time)), endpoint=False)#defining the specific timesteps we want to do evaporative cooling at
         print(int(Nt/(therm_time-1)))
         print(f'The Evap Times are {evap_times}')
         print(f'Starting time t ={t}')
         print(f'Starting Cut-Off is {cut_off}')
         evap_atoms = []
         
-        if create_histograms:
+        if create_histograms_start_finish:
             self.histogram(N, Nt, dt, 't = 0') #create a histogram of the initial values
         
         while t != Nt: #loop through the timesteps
@@ -351,7 +366,11 @@ class Environment:
                     if create_graph2d:
                         ax1.scatter(i.x, i.y, c='b', s=2)
                     
-                    sigma_variable.append(i.x) #append the r/v values into the empty array
+                    sigma_r_radius = Particle.mag_r(i)
+                    sigma_variable.append(sigma_r_radius)
+                    #sigma_variable.append(i.vx) #append the r/v values into the empty array
+                    
+                    
         
                     #alter the positions of the particles according to their velocities
                     Particle.drift(i, dt) 
@@ -381,7 +400,7 @@ class Environment:
                 if create_histograms:
                     self.histogram(N, Nt, dt, f'{t+1}') #create a histogram of the final value
                 if save_images: #save the graphs as they are created to the specified file
-                    plt.savefig(r'D:\Yr 4 Cold Atoms Project\03.03.2021 Yr4-Ultracold-Atoms-Project-vinothanv377-patch-1\Yr4-Ultracold-Atoms-Project-vinothanv377-patch-1\images\radial_positions\timestep{t}.png'.format(t=t))
+                    plt.savefig(r'E:\Yr 4 Cold Atoms Project\03.03.2021 Yr4-Ultracold-Atoms-Project-vinothanv377-patch-1\Yr4-Ultracold-Atoms-Project-vinothanv377-patch-1\images\velocities\timestep{t}.png'.format(t=t))
                 t+= 1 #ensures that time-steps progress by one every full cycle of checks 
             else: # else statement, in case the t==evap_times if condition isn't met
                 print('not yet')
@@ -391,15 +410,16 @@ class Environment:
                 
             sigmadt = np.sqrt(np.var(sigma_variable)) #calculate the sd of the r/v values for this timestep
             sigma.append(sigmadt) #append it to the empty array created at the start
+            num_atoms.append(np.size(self.particles))
                 
             #if save_images: #save the graphs as they are created to the specified file
                  #plt.savefig(r'D:\Yr 4 Cold Atoms Project\03.03.2021 Yr4-Ultracold-Atoms-Project-vinothanv377-patch-1\Yr4-Ultracold-Atoms-Project-vinothanv377-patch-1\images\x_position\timestep{t}.png'.format(t=t))
                  
-        if create_histograms:
+        if create_histograms_start_finish:
             self.histogram(N, Nt, dt, 't = Ntdt') #create a histogram of the final values
-            print(np.size(evap_atoms))
+            print(evap_times)
         if save_images: #save the graphs as they are created to the specified file
-                 plt.savefig(r'D:\Yr 4 Cold Atoms Project\03.03.2021 Yr4-Ultracold-Atoms-Project-vinothanv377-patch-1\Yr4-Ultracold-Atoms-Project-vinothanv377-patch-1\images\radial_positions\timestep{t}.png'.format(t=t))
+                 plt.savefig(r'E:\Yr 4 Cold Atoms Project\03.03.2021 Yr4-Ultracold-Atoms-Project-vinothanv377-patch-1\Yr4-Ultracold-Atoms-Project-vinothanv377-patch-1\images\velocities\timestep{t}.png'.format(t=t))
             
         
         #create graph, and plot the values in the 'sigma' array against time
@@ -408,7 +428,8 @@ class Environment:
             gs = gridspec.GridSpec(1,1)
             ax = fig.add_subplot(gs[0])
             ax.set_xlabel('Time /s')
-            ax.set_ylabel('Sigma_x /m')
+            ax.set_ylabel('Sigma_r /m')
+            ax.set_title(f'T={self.Ti}, omega={(self.omega_x, self.omega_y, self.omega_z)}, N={N}, Nt={Nt}, dt= {dt}, therm_time= {therm_time}, evap_rate= {rate_of_evap}')
             time = np.arange(len(sigma))*dt
             ax.plot(time, sigma , color='g')
             #midpoint = (np.max(sigma)-np.min(sigma))/2 +np.min(sigma)
@@ -421,11 +442,30 @@ class Environment:
             #print(f'Oscillating around {midpoint} (pink)')
             #print(f'Time value for first maxima (black): {time[np.argmax(sigma[0:1000])]}')
             #print(f'Time value for maxima (blue): {time[np.argmax(sigma)]}')
-
+            
+        if plot_N:
+            fig = plt.figure(figsize=(8,3))
+            gs = gridspec.GridSpec(1,1)
+            ax = fig.add_subplot(gs[0])
+            ax.set_xlabel('Time /s')
+            ax.set_ylabel('N')
+            ax.set_title(f'T={self.Ti}, omega={(self.omega_x, self.omega_y, self.omega_z)}, N={N}, Nt={Nt}, dt= {dt}, therm_time= {therm_time}, evap_rate= {rate_of_evap}')
+            time = np.arange(len(sigma))*dt
+            ax.plot(time, num_atoms , color='r')
+            
+        if plot_T:
+            fig = plt.figure(figsize=(8,3))
+            gs = gridspec.GridSpec(1,1)
+            ax = fig.add_subplot(gs[0])
+            ax.set_xlabel('Time /s')
+            ax.set_ylabel('T')
+            ax.set_title(f'T={self.Ti}, omega={(self.omega_x, self.omega_y, self.omega_z)}, N={N}, Nt={Nt}, dt= {dt}, therm_time= {therm_time}, evap_rate= {rate_of_evap}')
+            time = np.arange(len(sigma))*dt
+            ax.plot(evap_times, self.temp_array, color='b')
     
                         
 env = Environment(0.01,10**-6,60,60,60)
 env.Create_Particle(10000)
-env.time_evolve_standard(0.001, 100, 10000)
-env.time_evolve_evap(0.001, 100, 10000, 10, 0.8)
+env.time_evolve_standard(0.0001, 100, 10000)
+env.time_evolve_evap(0.0001, 100, 10000, 5, 0.95)
 #env.evap_cooling(10, 100, 0.75)

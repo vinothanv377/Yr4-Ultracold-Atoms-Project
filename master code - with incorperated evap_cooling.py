@@ -139,8 +139,8 @@ class Environment:
         
         to_plot = [] #empty array
         for i in self.particles:
-            hist_r_radius = Particle.mag_r(i)
-            to_plot.append(hist_r_radius) #select which values to plot, and append to the array
+            hist_vr_radius = Particle.mag_vr(i)
+            to_plot.append(hist_vr_radius) #select which values to plot, and append to the array
             #to_plot.append(i.vx) #select which values to plot, and append to the array
         fig = plt.figure(figsize=(8,3))
         gs = gridspec.GridSpec(1,1)
@@ -153,19 +153,19 @@ class Environment:
         result1 = ax2.hist(to_plot, bins=100)
         mean1 = np.mean(to_plot)
         sigma1 = np.sqrt(np.var(to_plot))
-        ax2.set_xlim(0,0.0011)
-        ax2.set_ylim(0, 350)
-        ax2.text(0.00005, 320, '{}'.format(label))
-        ax2.text(0.0006, 320, 'mean = {:.3g}'.format(mean1))
-        ax2.text(0.0006, 290, 'sd = {:.3g}'.format(sigma1))
+        #ax2.set_xlim(0,0.0011)
+        #ax2.set_ylim(0, 350)
+        #ax2.text(0.00005, 320, '{}'.format(label))
+        #ax2.text(0.0006, 320, 'mean = {:.3g}'.format(mean1))
+        #ax2.text(0.0006, 290, 'sd = {:.3g}'.format(sigma1))
         #ax2.set_xlim(-0.06,0.06)
         #ax2.set_ylim(0, 360)
         #ax2.text(-0.04, 320, '{}'.format(label))
         #ax2.text(0.004, 320, 'mean = {:.3g}'.format(mean1))
         #ax2.text(0.004, 290, 'sd = {:.3g}'.format(sigma1))
-        #ax2.text(max(result1[1])*0.25, max(result1[0])*0.95, '{}'.format(label))
-        #ax2.text(max(result1[1])*0.75, max(result1[0])*0.95, 'mean = {:.3g}'.format(mean1))
-        #ax2.text(max(result1[1])*0.75, max(result1[0])*0.85, 'sd = {:.3g}'.format(sigma1))
+        ax2.text(max(result1[1])*0.25, max(result1[0])*0.95, '{}'.format(label))
+        ax2.text(max(result1[1])*0.75, max(result1[0])*0.95, 'mean = {:.3g}'.format(mean1))
+        ax2.text(max(result1[1])*0.75, max(result1[0])*0.85, 'sd = {:.3g}'.format(sigma1))
         x1 = np.linspace(min(to_plot), max(to_plot), 100)
         dx1 = result1[1][1] - result1[1][0]
         scale1 = len(to_plot)*dx1
@@ -173,7 +173,7 @@ class Environment:
         ax2.plot(x1, scipy.stats.norm.pdf(x1, mean1, sigma1)*scale1, color='g')
         Dist_Temp = (sigma1**2)*self.mass*((self.omega_x)**2)/(k)
         self.temp_array.append(Dist_Temp)
-        ax2.text(0.0006, 260, 'sd = {:.3g}'.format(Dist_Temp))
+        #ax2.text(0.0006, 260, 'sd = {:.3g}'.format(Dist_Temp))
         
         
     def evap_cooling(self, therm_time, Nt, rate_of_evap):
@@ -457,7 +457,7 @@ class Environment:
             fig = plt.figure(figsize=(8,3))
             gs = gridspec.GridSpec(1,1)
             ax = fig.add_subplot(gs[0])
-            ax.set_xlabel('Time /s')
+            ax.set_xlabel('Time /ms')
             ax.set_ylabel('T')
             ax.set_title(f'T={self.Ti}, omega={(self.omega_x, self.omega_y, self.omega_z)}, N={N}, Nt={Nt}, dt= {dt}, therm_time= {therm_time}, evap_rate= {rate_of_evap}')
             time = np.arange(len(sigma))*dt
@@ -466,6 +466,6 @@ class Environment:
                         
 env = Environment(0.01,10**-6,60,60,60)
 env.Create_Particle(10000)
-env.time_evolve_standard(0.0001, 100, 10000)
-env.time_evolve_evap(0.0001, 100, 10000, 5, 0.95)
+env.time_evolve_standard(0.0001, 200, 10000)
+env.time_evolve_evap(0.0001, 200, 10000, 5, 0.95)
 #env.evap_cooling(10, 100, 0.75)

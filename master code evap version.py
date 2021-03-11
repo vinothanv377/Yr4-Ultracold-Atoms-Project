@@ -104,6 +104,19 @@ class Particle:
         self.vy += -(omega_y**2)*self.y*dt
         self.vz += -(omega_z**2)*self.z*dt
         
+#########################################################################################################
+        
+        
+class Cell: 
+    """A class representing a cell to discretise the space"""
+    
+    def __init__(self, x, y, z): 
+        self.stored_atoms = []
+        self.centre_x = x
+        self.centre_y = y
+        self.centre_z = z
+        self.centre_coords = np.array([x,y,z])
+        
         
 ########################################################################################################        
      
@@ -119,8 +132,8 @@ class Environment:
         self.omega_z = omega_z
         self.particles = []
         self.mass = 85*10**(-27)
-        self.temp_array = []
-    
+      #  self.temp_array = []
+        self.space = []
     
     def Create_Particle(self, N):
         '''Function to create N particles and initialise their r and v coordinates. 
@@ -130,6 +143,43 @@ class Environment:
             test_p = Particle(1,1,1,1,1,1)
             Particle.set_rand_rv(test_p, self.Ti, self.omega_x, self.omega_y, self.omega_z)
             self.particles.append(test_p)
+            
+            
+            
+    def Create_Cell(self, Ncell_i):
+        #along_L = int(Ncell**(1/3))
+        #totalN = Ncell_i**3
+        
+        for x in range(Ncell_i):
+            for y in range(Ncell_i):
+                for z in range(Ncell_i):
+                    x_pos = -self.L/2 + self.L/(2*Ncell_i) + (x*self.L)/(Ncell_i)
+                    y_pos = -self.L/2 + self.L/(2*Ncell_i) + (y*self.L)/Ncell_i
+                    z_pos = -self.L/2 + self.L/(2*Ncell_i) + (z*self.L)/Ncell_i
+                    test_cell = Cell(x_pos,y_pos,z_pos)
+                    self.space.append(test_cell)
+                    #print(test_cell.centre_x)
+        print(np.size(self.space))
+
+        
+    def Check_cells(self):
+        fig = plt.figure(figsize=(3,3))
+        gs = gridspec.GridSpec(1,1)
+        ax1 = fig.add_subplot(gs[0])
+        ax1.set_ylim(-self.L/2,self.L/2) #sets the dimensions of the axes to be the same as the box
+        ax1.set_xlim(-self.L/2,self.L/2)
+        for n in self.space:
+            ax1.axhline(y=n.centre_y, xmin=0, xmax=1, linestyle='--', color='g')
+            ax1.axvline(x=n.centre_x, ymin=0, ymax= 1, linestyle='--', color='b')
+            #print(n.centre_coords)
+        
+        
+    def sort_atoms(self, Ncell_i):
+        for c in self.space:
+            for n in self.particles:
+                if c.centre_x - self.L/(2*Ncell_i) < n.x < c.centre_x + self.L/(2*Ncell_i) and c.centre_y - self.L/(2*Ncell_i) < n.y < c.centre_y + self.L/(2*Ncell_i) and c.centre_z - self.L/(2*Ncell_i) < n.z < c.centre_z + self.L/(2*Ncell_i):
+                    c.stored_atoms.append(n)
+            print('cell done!')
            
             
     def histogram(self, N, Nt, dt, label):
@@ -142,28 +192,32 @@ class Environment:
         fig = plt.figure(figsize=(8,3))
         gs = gridspec.GridSpec(1,1)
         ax2 = fig.add_subplot(gs[0])
-        
-        ax2.set_xlabel('x position of particles')
         #set title with the simulation parameters to keep track of the data
         ax2.set_title(f'T={self.Ti}, omega={(self.omega_x, self.omega_y, self.omega_z)}, N={N}, Nt={Nt}, dt= {dt}')
-        ax2.set_xlim(-0.001,0.001)
-        result1 = ax2.hist(to_plot, bins=100)
+        result1 = ax2.hist(to_plot, bins=100) #plotting the histogram
         mean1 = np.mean(to_plot)
         sigma1 = np.sqrt(np.var(to_plot))
-        ax2.text(max(result1[1])*0.25, max(result1[0])*0.95, '{}'.format(label))
-        ax2.text(max(result1[1])*0.75, max(result1[0])*0.95, 'mean = {:.3g}'.format(mean1))
-        ax2.text(max(result1[1])*0.75, max(result1[0])*0.75, 'sd = {:.3g}'.format(sigma1))
         x1 = np.linspace(min(to_plot), max(to_plot), 100)
         dx1 = result1[1][1] - result1[1][0]
-        scale1 = len(to_plot)*dx1
-        #plotting a Gaussian of the results, display mean and sd of the data on the graph
-        ax2.plot(x1, scipy.stats.norm.pdf(x1, mean1, sigma1)*scale1, color='g')
-        Dist_Temp = (sigma1**2)*self.mass/k#((self.omega_x)**2)/(k)
-        self.temp_array.append(Dist_Temp)
-        #ax2.text(0.0006, 260, 'sd = {:.3g}'.format(Dist_Temp))
+        scale1 = len(to_plot)*dx1 #scaling the curves to match the histogram
         
-        #params = scipy.stats.maxwell.fit(to_plot, floc=0) #fitting a maxwell distribution to the data
-        #ax2.plot(x1, scipy.stats.maxwell.pdf(x1, *params)*scale1)#, lw=3)
+        #plotting a Gaussian of the results, for single direction 
+        ax2.plot(x1, scipy.stats.norm.pdf(x1, mean1, sigma1)*scale1, color='g')
+        ax2.set_xlabel('x position of particles')
+        #ax2.set_ylim(0,300)
+        ax2.set_xlim(-0.001,0.001)
+        ax2.text(0.0005, 250, 'mean = {:.3g}'.format(mean1))
+        ax2.text(0.0005, 200, 'sd = {:.3g}'.format(sigma1))
+        ax2.text(-0.0009, max(result1[0])*0.95, '{}'.format(label))
+ 
+        #fitting a maxwell distribution to the data, for radial coords
+        #params = scipy.stats.maxwell.fit(to_plot, floc=0) 
+        #ax2.plot(x1, scipy.stats.maxwell.pdf(x1, *params)*scale1)
+        #ax2.set_xlabel('Radial position of particles')
+        #ax2.text(max(result1[1])*0.85, max(result1[0])*0.95, 'mean = {:.3g}'.format(mean1))
+        #ax2.text(max(result1[1])*0.85, max(result1[0])*0.75, 'sd = {:.3g}'.format(sigma1))
+        #ax2.set_xlim(0,0.06)
+        #ax2.set_ylim(0,300)
         
         
     def histogram_TOF(self, N, Nt, dt, label, TOF):
@@ -172,7 +226,7 @@ class Environment:
         
         to_plot = [] #empty array
         for i in self.particles:
-            to_plot.append(i.x)#Particle.mag_r(i)) #select which values to plot, and append to the array
+            to_plot.append(Particle.mag_vr(i)) #select which values to plot, and append to the array
         fig = plt.figure(figsize=(8,3))
         gs = gridspec.GridSpec(1,1)
         ax2 = fig.add_subplot(gs[0])
@@ -180,20 +234,20 @@ class Environment:
         ax2.set_xlabel('x position of particles')
         #set title with the simulation parameters to keep track of the data
         ax2.set_title(f'T={self.Ti}, omega={(self.omega_x, self.omega_y, self.omega_z)}, N={N}, Nt={Nt}, dt= {dt}')
-        ax2.set_xlim(-0.001,0.001)
+       # ax2.set_xlim(-0.001,0.001)
         result1 = ax2.hist(to_plot, bins=100)
         mean1 = np.mean(to_plot)
         sigma1 = np.sqrt(np.var(to_plot))
         ax2.text(max(result1[1])*0.25, max(result1[0])*0.95, '{}'.format(label))
-        ax2.text(max(result1[1])*0.75, max(result1[0])*0.95, 'mean = {:.3g}'.format(mean1))
-        ax2.text(max(result1[1])*0.75, max(result1[0])*0.75, 'sd = {:.3g}'.format(sigma1))
+        ax2.text(max(result1[1])*0.55, max(result1[0])*0.95, 'mean = {:.3g}'.format(mean1))
+        ax2.text(max(result1[1])*0.55, max(result1[0])*0.75, 'sd = {:.3g}'.format(sigma1))
         x1 = np.linspace(min(to_plot), max(to_plot), 100)
         dx1 = result1[1][1] - result1[1][0]
         scale1 = len(to_plot)*dx1
         #plotting a Gaussian of the results, display mean and sd of the data on the graph
         ax2.plot(x1, scipy.stats.norm.pdf(x1, mean1, sigma1)*scale1, color='r')
         temp = (self.mass/k)*((self.omega_x*sigma1)**2/(1+(self.omega_x*TOF)**2))
-        ax2.text(max(result1[1])*0.75, max(result1[0])*0.25, 'Temp = {:.3g}K'.format(temp))
+        ax2.text(max(result1[1])*0.55, max(result1[0])*0.25, 'Temp = {:.3g}K'.format(temp))
         
         
         
@@ -296,9 +350,6 @@ class Environment:
         
         sigma = [] #creating an empty array to contain the standard deviation values
         
-       # if create_histograms:
-        #    self.histogram(N, Nt, dt, 't = 0') #create a histogram of the initial values
-        
         for t in range(Nt): #loop through the timesteps
             if create_graph3d:
                 fig = plt.figure(figsize=(10,10))
@@ -369,7 +420,7 @@ class Environment:
         create_graph2d = False #set to true to plot a xy slice of the particle positions for each time step
         create_graph3d = False #set to true to plot the particle positions in 3D for each time step
         save_images = False #set to true to save the associated images to the specified file path
-        create_histograms = False#set to true to plot histograms before and after the time loop
+        create_histograms = False #set to true to plot histograms before and after the time loop
         create_histograms_start_finish = True
         plot_sigma = False #set to true to plot the standard deviation of r or v over time
         plot_N = False
@@ -505,11 +556,22 @@ class Environment:
             #ax.set_title(f'T={self.Ti}, omega={(self.omega_x, self.omega_y, self.omega_z)}, N={N}, Nt={Nt}, dt= {dt}, therm_time= {therm_time}, evap_rate= {rate_of_evap}')
             time = np.arange(len(sigma))*dt
             ax.plot(evap_times, self.temp_array, color='b')
+            
+    
+    
+#########################################################################################
+            
+
+        
+
     
                         
 env = Environment(0.01,10**-6,60,60,60)
-env.Create_Particle(10000)
-env.time_evolve_standard(0.0001, 200, 10000)
-env.time_evolve_evap(0.0001, 100, 10000, 5, 0.95)
-env.time_evolve_TOF(0.0001, 200, np.size(env.particles))
+env.Create_Particle(100)
+env.Create_Cell(10)
+env.Check_cells()
+env.sort_atoms(10)
+#env.time_evolve_standard(0.0001, 200, 10000)
+#env.time_evolve_evap(0.0001, 200, 10000, 5, 0.97)
+#env.time_evolve_TOF(0.0001, 1000, np.size(env.particles))
 

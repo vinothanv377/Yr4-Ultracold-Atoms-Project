@@ -6,8 +6,17 @@ Created on Thu Mar  4 10:32:30 2021
 """
 
 import numpy as np
-Nt = 100
-therm_time = 5
-print(np.linspace(0, Nt, int((Nt)/(therm_time)), endpoint=False))
-y = np.linspace(0, Nt, int((Nt)/(therm_time)), endpoint=False)
-print(np.size(y))
+import random
+import numpy as np
+#from sklearn.preprocessing import normalize
+
+x1 = np.random.rand(3)
+#x = [random.random(),random.random(), random.random()]
+norm1 = x1 / np.linalg.norm(x1)
+print(norm1[0]**2+norm1[1]**2+norm1[2]**2)
+print(x1)
+#norm2 = normalize(x[:,np.newaxis], axis=0).ravel()
+#print (np.all(norm1 == norm2))
+# True
+y = [1,2,3,4,5,6]
+print(np.average(y))

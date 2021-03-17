@@ -135,6 +135,8 @@ class Environment:
         self.mass = 85*10**(-27)
       #  self.temp_array = []
         self.space = []
+        self.cross_sect = 10**-16 #just placeholder values- this is from 4*pi*a^2 using a for Rb 
+        self.vr_max = 0.1 #from those very brief tests
     
     def Create_Particle(self, N):
         '''Function to create N particles and initialise their r and v coordinates. 
@@ -347,8 +349,8 @@ class Environment:
         save_images = False #set to true to save the associated images to the specified file path
         create_histograms = False #set to true to plot histograms before and after the time loop
         plot_sigma = False #set to true to plot the standard deviation of r or v over time
-        checking_cube = True #set to true to plot xy, xz,yz slices with the cell chosen marked- particles in that cell are marked in pink
-        c=1 # the index of the cell we're checking
+        checking_cube = False #set to true to plot xy, xz,yz slices with the cell chosen marked- particles in that cell are marked in pink
+        c=0 # the index of the cell we're checking
         
         sigma = [] #creating an empty array to contain the standard deviation values
         
@@ -433,19 +435,46 @@ class Environment:
                 #alter the positions of the particles according to their velocities
                 Particle.drift(i, dt)
                 #alter the velocities of the particles, account for the trapping potential
-                #Particle.potential_v_change(i, self.omega_x, self.omega_y, self.omega_z, dt)
+                Particle.potential_v_change(i, self.omega_x, self.omega_y, self.omega_z, dt)
                 
             self.sort_atoms_again(Ncell_i) #sorting the atoms- only keeping atoms that are still in the cell at the end of the timestep
             
+            N_collisions = 0
+            for c in self.space:
+                #for n in self.particles:
+                #    c.stored_atoms = [n for n in self.particles if c.centre_x - self.L/(2*Ncell_i) < n.x < c.centre_x + self.L/(2*Ncell_i) and c.centre_y - self.L/(2*Ncell_i) < n.y < c.centre_y + self.L/(2*Ncell_i) and c.centre_z - self.L/(2*Ncell_i) < n.z < c.centre_z + self.L/(2*Ncell_i)]
+                
+                Nc = np.size(c.stored_atoms) #no of atoms in cell
+                Vc = (self.L/Ncell_i)**3 #volume of cell
+                pair_cand = np.ceil((Nc*(Nc-1)*self.cross_sect*self.vr_max*dt)/(2*Vc)) #no of pair candidates to loop through
+                print(np.size(c.stored_atoms))
+                print(f'no. of candidates= {int(pair_cand)}')
+                
+                for w in range(int(pair_cand)):
+                    i = np.random.randint(Nc)
+                    j = np.random.randint(Nc)
+                    #print(f'i is {i}')
+                    #print(f'j is {j}')
+                    v_rel = np.sqrt((c.stored_atoms[i].vx-c.stored_atoms[j].vx)**2 + (c.stored_atoms[i].vy-c.stored_atoms[j].vy)**2 + (c.stored_atoms[i].vz-c.stored_atoms[j].vz)**2)
+                    print(f'v_rel is {v_rel}')
+                    if v_rel < np.random.random()*self.vr_max:
+                        print('collision goes ahead!')
+                        N_collisions += 1
+                        
             print(f'atoms sorted t={t}!')
-            print(np.size(self.space[c].stored_atoms)) 
+            print(f'number of collisions = {N_collisions}')
+            #print(np.size(self.space[c].stored_atoms))
+            
                 
             sigmadt = np.sqrt(np.var(sigma_variable)) #calculate the sd of the r/v values for this timestep
             sigma.append(sigmadt) #append it to the empty array created at the start
                 
             if save_images: #save the graphs as they are created to the specified file
                  plt.savefig(r'C:\\Users\Bethan\Documents\evaporative cooling\test sim\trapthennot\timestep{t}.png'.format(t=t))
-                 
+         
+        #print(f'Max x velocity is {np.mean(velocitymax)}')
+        #print(f'Min x velocity is {np.mean(velocitymin)}')
+            
         if create_histograms:
             self.histogram(N, Nt, dt, 't = Ntdt') #create a histogram of the final value
         
@@ -698,11 +727,10 @@ class Environment:
 
     
                         
-env = Environment(0.01,10**-6,20,20,20)
-env.Create_Particle(100)
-env.Create_Cell(5)
+env = Environment(0.002,10**-6,60,60,60) #L, T, omega
+env.Create_Particle(1000)
+env.Create_Cell(2)
 #env.Check_cells()
-#env.sort_atoms(4)
-env.time_evolve_sorting(0.0001, 10, 100, 5)
-#env.time_evolve_evap(0.0001, 200, 10000, 5, 0.97)
-#env.time_evolve_TOF(0.0001, 1000, np.size(env.particles))
+env.time_evolve_sorting(0.0001, 10, 1000, 2) #dt, Nt, N, Ncell
+#env.time_evolve_evap(0.0001, 200, 10000, 5, 0.97) #dt, Nt, N, evap_timestep, rate_of_evap
+#env.time_evolve_TOF(0.0001, 1000, np.size(env.particles)) #dt, Nt, N

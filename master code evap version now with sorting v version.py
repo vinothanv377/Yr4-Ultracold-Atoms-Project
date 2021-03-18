@@ -118,6 +118,9 @@ class Cell:
         self.centre_y = y
         self.centre_z = z
         self.centre_coords = np.array([x,y,z])
+        self.coll_atoms = [] 
+        self.ens_avg_N_array = [] #array to store the number of atoms in the cell over each timestep, used to determine the time averaged value for N in this cell.
+        
         
         
 ########################################################################################################        
@@ -137,7 +140,7 @@ class Environment:
      #  self.temp_array = []
         self.space = []
         self.cross_sect = 10**-16 #just placeholder values- this is from 4*pi*a^2 using a for Rb 
-        self.vr_max = 0.1 #from those very brief tests
+        self.vr_max = 0.05 #from those very brief tests
     
     def Create_Particle(self, N):
         '''Function to create N particles and initialise their r and v coordinates. 
@@ -197,11 +200,11 @@ class Environment:
         atom_2.v = c_m - (m1/(m1 + m2))*c_r*unit_n_vector #determining the post velcoity for 2nd atom back into general frame of refernce from the CoM frame
         return atom_1.v, atom_2.v #outputting the velocities of 1st and 2nd atom in general frame 
     
-    def Number_of_collisons(self, N, N_ens_avg, dt, Ncell_i):
-        ''' determining the allowed possible number of collisions in this timestep for this cell'''
+    '''def Number_of_collisons(self, N, N_ens_avg, dt, Ncell_i):
+        determining the allowed possible number of collisions in this timestep for this cell
         V_c = (self.L/Ncell_i)**3 #volume of cell
         N_of_coll = np.ceil(((N-1)*(N_ens_avg)*(self.cross_sect*self.vr_max)*dt)/(2*V_c)) #determining the allowed possible number of collisions in this timestep for this cell
-        return N_of_coll #outputting the allowed possible number of collisons
+        return N_of_coll #outputting the allowed possible number of collisons'''
     
         #y = np.size(self.space[c].stored_atoms)
         #atom = Particle(i.x, i.y, i.z, i.vx, i.vy, i.vz)
@@ -213,9 +216,9 @@ class Environment:
         m2 = self.mass #mass of atom 2
         V_c = (self.L/Ncell_i)**3 #volume of cell
         
-        for c in self.space: #looping over all cells in the environment i.e. space 
+        for c in self.space: #looping over all cells in the environment i.e. space
+            c.coll_atoms.clear() #clears the array for any partilces stored in it from the last time-step's collided atoms
             if np.size(c.stored_atoms) > 2: #minimum condition needed to even consider the cell, i.e. you need at least two atoms in the cell in order to do a two-body collision
-                c.ens_avg_N_array = [] #array to store the number of atoms in the cell over each timestep, used to determine the time averaged value for N in this cell.
                 pair_cand_counter = 0 #setting the current N of occured collision to zero at the start of the sequence
                 N = np.size(c.stored_atoms) #number of atoms in the cell
                 print(N)
@@ -227,37 +230,41 @@ class Environment:
                 
                 while pair_cand_counter != pair_cand: #statement ensuring that the required number of possible collisions are considered before moving to the next cell
                     atom_1 = random.choice(c.stored_atoms) #choosing the two atoms
-                    print(atom_1)
+                    #print(atom_1)
+                    #print(np.sqrt(atom_1.v[0]**2 + atom_1.v[1]**2 + atom_1.v[2]**2))
                     c.stored_atoms.remove(atom_1) #removing from the array so that the same atom cannot be chosen, i.e. cannot collide with itself
                     atom_2 = random.choice(c.stored_atoms) 
-                    print(atom_2)
+                    #print(atom_2)
                     c.stored_atoms.append(atom_1) #once atom_2 is chosen without it being the same atoms as atom_1, it must be reappended to the array to ensure that it is equally considered for the next round of particle collisons, if it hasn't already collided 
                     
                     c_r = atom_1.v-atom_2.v # determining the relative velocity for the pair of particles
                     c_r_mag = np.sqrt(c_r[0]**2 + c_r[1]**2 + c_r[2]**2)
-                    print(c_r)
+                    #print(c_r)
                     R_f = random.random() #choosing a random value between 0 and 1 used for the acceptance-rejection method for collisions 
                     
                     if (c_r_mag)/(self.vr_max) < R_f: # acceptance-rejection method condition for collision to be accepted
                         
-                        self.coll_atoms.append(atom_1) #appending the accepted atom_1 for collision to a seperate array for atoms that have/will collide
-                        c.stored_atoms.remove(atom_1) #remving the collided atom_1 from the array of atoms in the cell to ensure they are not selected again for collisions
-                        self.coll_atoms.append(atom_2) #appending the accepted atom_2 for collision to a seperate array for atoms that have/will collide
-                        c.stored_atoms.remove(atom_2) #remving the collided atom_2 from the array of atoms in the cell to ensure they are not selected again for collisions
+                        c.coll_atoms.append(atom_1) #appending the accepted atom_1 for collision to a seperate array for atoms that have/will collide
+                        c.stored_atoms.remove(atom_1) #removing the collided atom_1 from the array of atoms in the cell to ensure they are not selected again for collisions
+                        c.coll_atoms.append(atom_2) #appending the accepted atom_2 for collision to a seperate array for atoms that have/will collide
+                        c.stored_atoms.remove(atom_2) #removing the collided atom_2 from the array of atoms in the cell to ensure they are not selected again for collisions
                         
                         c_m = (m1*atom_1.v + m2*atom_2.v)/(m1+m2) #determining the CoM velocity 
-                        print(c_m)
-                        n_vector = np.random.rand(3) # producing a random vector or arbitray direction in the CoM frame that will be used to determine the post-collison velcoity 
-                        unit_n_vector = n_vector/np.linalg.norm(n_vector) #normalising the vector to lye on a unit sphere
-                        print((unit_n_vector[0]**2 + unit_n_vector[1]**2 + unit_n_vector[2]**2))
+                        #print(c_m)
                         atom_1.v = env.rel_vel_final(atom_1, atom_2, c_m, c_r)[0] #determing the post-collison velocity vector for atom_1 and transforming back into the general frame of reference 
                         atom_2.v = env.rel_vel_final(atom_1, atom_2, c_m, c_r)[1] #determing the post-collison velocity vector for atom_2 and transforming back into the general frame of reference
-                        print(atom_1.v)
-                        print(atom_2.v)
-                        print(atom_1.v[0]**2 + atom_1.v[1]**2 + atom_1.v[2]**2)
+                        #print(atom_1.v)
+                        #print(atom_2.v)
+                        #print(np.sqrt(atom_1.v[0]**2 + atom_1.v[1]**2 + atom_1.v[2]**2))
                         print('check!')
+                        pair_cand_counter += 1 #ensuring to increase the number for the current number of possible collisions in this time step considered by 1 each time a pair of randomly selected particles are cosidered for a collision
+                    else:
+                        print('failed to collide')
+                        pair_cand_counter += 1 #ensuring to increase the number for the current number of possible collisions in this time step considered by 1 each time a pair of randomly selected particles are cosidered for a collision
+            else:
+                print('not enough atoms')
                     
-                    pair_cand_counter += 1 #ensuring to increase the number for the current number of possible collisions in this time step considered by 1 each time a pair of randomly selected particles are cosidered for a collision
+                    
                         
             
                 
@@ -431,8 +438,8 @@ class Environment:
         save_images = False #set to true to save the associated images to the specified file path
         create_histograms = False #set to true to plot histograms before and after the time loop
         plot_sigma = False #set to true to plot the standard deviation of r or v over time
-        checking_cube = False #set to true to plot xy, xz,yz slices with the cell chosen marked- particles in that cell are marked in pink
-        c=0 # the index of the cell we're checking
+        checking_cube = True #set to true to plot xy, xz,yz slices with the cell chosen marked- particles in that cell are marked in pink
+        c=62 # the index of the cell we're checking
         
         sigma = [] #creating an empty array to contain the standard deviation values
         
@@ -519,9 +526,13 @@ class Environment:
                 #alter the velocities of the particles, account for the trapping potential
                 Particle.potential_v_change(i, self.omega_x, self.omega_y, self.omega_z, dt)
                 
-            #self.sort_atoms_again(Ncell_i) #sorting the atoms- only keeping atoms that are still in the cell at the end of the timestep
-            
-            N_collisions = 0
+            env.collisons(dt, Ncell_i) #dt, Ncell
+                
+            self.sort_atoms_again(Ncell_i) #sorting the atoms- only keeping atoms that are still in the cell at the end of the timestep
+            print(f'atoms sorted t={t}!')
+        
+        
+            '''N_collisions = 0
             
             for c in self.space: #loop through all the cells again
                 for n in self.particles:
@@ -548,7 +559,7 @@ class Environment:
                         
             print(f'atoms sorted t={t}!')
             print(f'number of collisions = {N_collisions}')
-            #print(np.size(self.space[c].stored_atoms))
+            #print(np.size(self.space[c].stored_atoms))'''
             
                 
             sigmadt = np.sqrt(np.var(sigma_variable)) #calculate the sd of the r/v values for this timestep
@@ -556,7 +567,7 @@ class Environment:
                 
             if save_images: #save the graphs as they are created to the specified file
                  plt.savefig(r'C:\\Users\Bethan\Documents\evaporative cooling\test sim\trapthennot\timestep{t}.png'.format(t=t))
-         
+        
         #print(f'Max x velocity is {np.mean(velocitymax)}')
         #print(f'Min x velocity is {np.mean(velocitymin)}')
             
@@ -813,9 +824,10 @@ class Environment:
     
                         
 env = Environment(0.002,10**-6,60,60,60) #L, T, omega
-env.Create_Particle(1000)
-env.Create_Cell(4)
+env.Create_Particle(20) #N
+env.Create_Cell(5) #Ncell
 #env.Check_cells()
-#env.time_evolve_sorting(0.0001, 10, 1000, 4) #dt, Nt, N, Ncell
+env.time_evolve_sorting(0.0001, 10, 20, 5) #dt, Nt, N, Ncell
 #env.time_evolve_evap(0.0001, 200, 10000, 5, 0.97) #dt, Nt, N, evap_timestep, rate_of_evap
 #env.time_evolve_TOF(0.0001, 1000, np.size(env.particles)) #dt, Nt, N
+#env.collisons(0.0001, 5) #dt, Ncell

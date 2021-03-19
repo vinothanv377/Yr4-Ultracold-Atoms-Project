@@ -139,8 +139,10 @@ class Environment:
         self.mass = 85*10**(-27)
      #  self.temp_array = []
         self.space = []
-        self.cross_sect = 10**-16 #just placeholder values- this is from 4*pi*a^2 using a for Rb 
-        self.vr_max = 0.05 #from those very brief tests
+        #self.cross_sect = 10**-16 #just placeholder values- this is from 4*pi*a^2 using a for Rb
+        self.cross_sect = 2.9*(10**(-10))
+        self.vr_max = 0.05#from those very brief tests
+        #self.vr_max = 6
     
     def Create_Particle(self, N):
         '''Function to create N particles and initialise their r and v coordinates. 
@@ -226,7 +228,8 @@ class Environment:
                 c.ens_avg_N_array.append(N) #appending the number of atoms in the cell from this time step into the time/ensemble averaged array, used for calaclauting the time/ensemble average
                 N_ens_avg = np.average(c.ens_avg_N_array) #time/ensemble averaged number of atoms in the cell over the timesteps so far
                 
-                pair_cand = np.ceil(((N-1)*(N_ens_avg)*(self.cross_sect*self.vr_max)*dt)/(2*V_c)) #calculate the number of pair candidates in the cell
+                #pair_cand = np.ceil(((N-1)*(N_ens_avg)*(self.cross_sect*self.vr_max)*dt)/(2*V_c)) #calculate the number of pair candidates in the cell
+                pair_cand = (((N-1)*(N_ens_avg)*(self.cross_sect*self.vr_max)*dt)/(2*V_c)) # same as above pair_cand just without the closest highest integer thing
                 print(f'no. of candidates ={pair_cand}')
                 
                 while pair_cand_counter != pair_cand: #statement ensuring that the required number of possible collisions are considered before moving to the next cell
@@ -240,7 +243,11 @@ class Environment:
                     
                     c_r = atom_1.v-atom_2.v # determining the relative velocity for the pair of particles
                     c_r_mag = np.sqrt(c_r[0]**2 + c_r[1]**2 + c_r[2]**2)
-                    #print(c_r)
+                    #print(f'magnitude of relative velcoity for this pair of atoms is {c_r_mag}')
+                    
+                    if c_r_mag > self.vr_max: #condition to update the maximum c_r value if a higher c_r value is found during  
+                        self.vr_max = c_r_mag
+                        
                     R_f = random.random() #choosing a random value between 0 and 1 used for the acceptance-rejection method for collisions 
                     
                     if (c_r_mag)/(self.vr_max) < R_f: # acceptance-rejection method condition for collision to be accepted
@@ -442,7 +449,7 @@ class Environment:
         create_histograms = False #set to true to plot histograms before and after the time loop
         plot_sigma = False #set to true to plot the standard deviation of r or v over time
         checking_cube = True #set to true to plot xy, xz,yz slices with the cell chosen marked- particles in that cell are marked in pink
-        c=62 # the index of the cell we're checking
+        c=13 # the index of the cell we're checking
         
         
         sigma = [] #creating an empty array to contain the standard deviation values
@@ -850,10 +857,10 @@ class Environment:
     
                         
 env = Environment(0.002,10**-6,60,60,60) #L, T, omega
-env.Create_Particle(75) #N
-env.Create_Cell(5) #Ncell
+env.Create_Particle(20000) #N
+env.Create_Cell(3) #Ncell
 #env.Check_cells()
-env.time_evolve_sorting_and_evap(0.0001, 45, 75, 5, 3, 0.90) #dt, Nt, N, Ncell, therm_time, rate of evap
+env.time_evolve_sorting_and_evap(0.0001, 45, 20000, 3, 3, 0.90) #dt, Nt, N, Ncell, therm_time, rate of evap
 #env.time_evolve_evap(0.0001, 200, 10000, 5, 0.97) #dt, Nt, N, evap_timestep, rate_of_evap
 #env.time_evolve_TOF(0.0001, 1000, np.size(env.particles)) #dt, Nt, N
 #env.collisons(0.0001, 5) #dt, Ncell

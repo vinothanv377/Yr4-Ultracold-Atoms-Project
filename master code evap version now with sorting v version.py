@@ -215,13 +215,14 @@ class Environment:
         m1 = self.mass #mass of atom 1
         m2 = self.mass #mass of atom 2
         V_c = (self.L/Ncell_i)**3 #volume of cell
+        less_2_atom_cells = 0
         
         for c in self.space: #looping over all cells in the environment i.e. space
             c.coll_atoms.clear() #clears the array for any partilces stored in it from the last time-step's collided atoms
             if np.size(c.stored_atoms) > 2: #minimum condition needed to even consider the cell, i.e. you need at least two atoms in the cell in order to do a two-body collision
                 pair_cand_counter = 0 #setting the current N of occured collision to zero at the start of the sequence
                 N = np.size(c.stored_atoms) #number of atoms in the cell
-                print(N)
+                print(f'number of atoms in cell {c} is {N}')
                 c.ens_avg_N_array.append(N) #appending the number of atoms in the cell from this time step into the time/ensemble averaged array, used for calaclauting the time/ensemble average
                 N_ens_avg = np.average(c.ens_avg_N_array) #time/ensemble averaged number of atoms in the cell over the timesteps so far
                 
@@ -256,13 +257,15 @@ class Environment:
                         #print(atom_1.v)
                         #print(atom_2.v)
                         #print(np.sqrt(atom_1.v[0]**2 + atom_1.v[1]**2 + atom_1.v[2]**2))
-                        print('check!')
+                        print('collison checks complete!')
                         pair_cand_counter += 1 #ensuring to increase the number for the current number of possible collisions in this time step considered by 1 each time a pair of randomly selected particles are cosidered for a collision
                     else:
                         print('failed to collide')
                         pair_cand_counter += 1 #ensuring to increase the number for the current number of possible collisions in this time step considered by 1 each time a pair of randomly selected particles are cosidered for a collision
             else:
-                print('not enough atoms')
+                less_2_atom_cells +=1
+                #print('not enough atoms')
+        print(f'{less_2_atom_cells} cells had less than 2 atoms')
                     
                     
                         
@@ -425,7 +428,7 @@ class Environment:
             
         
 
-    def time_evolve_sorting(self,dt,Nt,N, Ncell_i):
+    def time_evolve_sorting_and_evap(self,dt,Nt,N, Ncell_i, therm_time, rate_of_evap):
         '''Runs the simulation through Nt timesteps, of individual size dt. For each timestep
         alters the positions of the particles according to their velocities. Then 
         changes the velocities of the particles to account for the influence of the trapping 
@@ -441,14 +444,36 @@ class Environment:
         checking_cube = True #set to true to plot xy, xz,yz slices with the cell chosen marked- particles in that cell are marked in pink
         c=62 # the index of the cell we're checking
         
+        
         sigma = [] #creating an empty array to contain the standard deviation values
+        sigma_avg = []
+        num_atoms = []
+        r_vals = [] #defining an empty array for the magnitude radius values
+        
+        t = float(0) #ensures the value for t is treated as a float to avoid compatibility conditons
+        
+        for i in self.particles: #looping through all the particles in the system
+            r_vals.append(Particle.mag_r(i))  #to append the magnitude radius to the r_vals array
+
+        cut_off = max(r_vals) #setting the cut-off point for minimum radius from the paricles as an arbitrary max value of the r_vals
+        evap_times = np.linspace(0, Nt, int(Nt/(therm_time)), endpoint=False)#defining the specific timesteps we want to do evaporative cooling at
+        #print(int(Nt/(therm_time-1)))
+        #print(f'The Evap Times are {evap_times}')
+        #print(f'Starting time t ={t}')
+        print(f'Starting Cut-Off is {cut_off}')
+        evap_atoms = []
         
         if create_histograms:
             self.histogram(N, Nt, dt, 't = 0') #create a histogram of the initial values
             
         self.sort_atoms(Ncell_i) #initially sorting the atoms into the appropriate arrays associated with cells
         
-        for t in range(Nt): #loop through the timesteps
+        while t != Nt: #loop through the timesteps
+            print('~~~~~~~~~~~~~~~~~~~Start of New Timestep~~~~~~~~~~~~~~~~~')
+            sigma_variable = [] #creating an empty array to store the r/v values from which to calc an sd
+            sigma_variablex = [] 
+            sigma_variabley = []
+            sigma_variablez = []
             if create_graph3d:# and t%10 == 0: #can choose to only print graphs every few timesteps
                 fig = plt.figure(figsize=(10,10))
                 gs = gridspec.GridSpec(1,1)
@@ -466,6 +491,8 @@ class Environment:
                 ax1.set_xlabel('x')
                 ax1.set_ylabel('y')
                 ax1.text(self.L/3,-self.L/3, f'{t+1}') #print the timestep number on the graph
+                curr_num_atoms = np.size(self.particles)
+                ax1.text(self.L/4,-self.L/4, f'current total atoms = {curr_num_atoms}')
             
                 if checking_cube:
                     #plots a square showing the boundaries of the chosen cell. The atoms in that cell's array are indicated in pink, cell centre marked with black cross.
@@ -495,10 +522,6 @@ class Environment:
                     ax3.scatter(self.space[c].centre_y, self.space[c].centre_z, marker='x', c='k', s=24)
                     ax3.add_patch(Rectangle((self.space[c].centre_y - self.L/(2*Ncell_i), self.space[c].centre_z - self.L/(2*Ncell_i)), self.L/(Ncell_i), self.L/(Ncell_i), fill=False, ls='--'))
                     
-                    
-                
-                
-            sigma_variable = [] #creating an empty array to store the r/v values from which to calc an sd
             
             for i in self.particles: #for each timestep, loop through the particles in the array
                 #plot the positions if needed
@@ -518,56 +541,59 @@ class Environment:
                         ax3.scatter(i.y, i.z, c='y', s=2)
                         for n in self.space[c].stored_atoms:
                             ax3.scatter(n.y, n.z, c='m', s=6)
-                    
-                sigma_variable.append(i.x) #append the r/v values into the empty array
+                
+                sigma_variable.append(Particle.mag_r(i))
+                sigma_variablex.append(i.x) #append the r/v values into the empty array
+                sigma_variabley.append(i.y)
+                sigma_variablez.append(i.z)
+                
         
                 #alter the positions of the particles according to their velocities
                 Particle.drift(i, dt)
                 #alter the velocities of the particles, account for the trapping potential
                 Particle.potential_v_change(i, self.omega_x, self.omega_y, self.omega_z, dt)
                 
-            env.collisons(dt, Ncell_i) #dt, Ncell
-                
             self.sort_atoms_again(Ncell_i) #sorting the atoms- only keeping atoms that are still in the cell at the end of the timestep
             print(f'atoms sorted t={t}!')
-        
-        
-            '''N_collisions = 0
             
-            for c in self.space: #loop through all the cells again
-                for n in self.particles:
-                    c.stored_atoms = [n for n in self.particles if c.centre_x - self.L/(2*Ncell_i) < n.x < c.centre_x + self.L/(2*Ncell_i) and c.centre_y - self.L/(2*Ncell_i) < n.y < c.centre_y + self.L/(2*Ncell_i) and c.centre_z - self.L/(2*Ncell_i) < n.z < c.centre_z + self.L/(2*Ncell_i)]
-       
-                
-                Nc = np.size(c.stored_atoms) #no of atoms in cell
-                Vc = (self.L/Ncell_i)**3 #volume of cell
-                pair_cand = np.ceil((Nc*(Nc-1)*self.cross_sect*self.vr_max*dt)/(2*Vc)) #no of pair candidates to loop through
-                print(np.size(c.stored_atoms))
-                print(f'no. of candidates= {int(pair_cand)}')
-                
-                for w in range(int(pair_cand)): #loop through the number of possible pairs (only does this if there's at least two atoms in the cell)
-                    i = np.random.randint(Nc) # choose the indices of the two colliding atoms randomly
-                    j = np.random.randint(Nc)
-                    #print(f'i is {i}')
-                    #print(f'j is {j}')
-                    v_rel = np.sqrt((c.stored_atoms[i].vx-c.stored_atoms[j].vx)**2 + (c.stored_atoms[i].vy-c.stored_atoms[j].vy)**2 + (c.stored_atoms[i].vz-c.stored_atoms[j].vz)**2)
-                    print(f'v_rel is {v_rel}')
-                    if v_rel < np.random.random()*self.vr_max: #acceptance-rejection method
-                        print('collision goes ahead!') 
-                        #the actual collision stuff would happen here I guess
-                        N_collisions += 1
-                        
-            print(f'atoms sorted t={t}!')
-            print(f'number of collisions = {N_collisions}')
-            #print(np.size(self.space[c].stored_atoms))'''
+            env.collisons(dt, Ncell_i) #dt, Ncell
             
+            if np.any(t == evap_times): #if statement, a conditon to see t is equal to any of the evap_times
+                print(f'time to evap t={t}!')
+                for i in self.particles: #looping through all partilces
+                    if Particle.mag_r(i) >= cut_off: #if statement, a condition to see if magnitude radius of the partilce is greater than or equal to the cut_off radius
+                        i.x = 0.004 #if the statment is satisified we set the position of the particle to an arbirtary position, to mimic the effects of evaporative cooling
+                        i.y = 0.004 #""
+                        i.z = 0.004 #""
+                        atom = Particle(i.x, i.y, i.z, i.vx, i.vy, i.vz)
+                        evap_atoms.append(atom)
+                        self.particles.remove(i)
+                N_evap_atoms = np.size(evap_atoms)
+                print(f'{N_evap_atoms} got evaporated!')
+                   
+                    
+                cut_off = cut_off*rate_of_evap #outside of this if-else statment, once all particles have been looped/checked against the statment, we redefine the cut-off radius at a rate defined in the funtion variable
+                #print(f'Setting new cut-off as {cut_off}')
+                if create_histograms:
+                    self.histogram(N, Nt, dt, f'{t+1}') #create a histogram of the final value
+                if save_images: #save the graphs as they are created to the specified file
+                    plt.savefig(r'E:\Yr 4 Cold Atoms Project\03.03.2021 Yr4-Ultracold-Atoms-Project-vinothanv377-patch-1\Yr4-Ultracold-Atoms-Project-vinothanv377-patch-1\images\velocities\timestep{t}.png'.format(t=t))
+              
+            t+=1 #ensures that time-steps progress by one every full cycle of checks 
                 
+            sigmaxdt = np.sqrt(np.var(sigma_variablex)) 
+            sigmaydt = np.sqrt(np.var(sigma_variabley))
+            sigmazdt = np.sqrt(np.var(sigma_variablez))
+            sigmadt_avg = (1/3)*(sigmaxdt + sigmaydt + sigmazdt)
             sigmadt = np.sqrt(np.var(sigma_variable)) #calculate the sd of the r/v values for this timestep
             sigma.append(sigmadt) #append it to the empty array created at the start
+            sigma_avg.append(sigmadt_avg)
+            num_atoms.append(np.size(self.particles))
                 
             if save_images: #save the graphs as they are created to the specified file
                  plt.savefig(r'C:\\Users\Bethan\Documents\evaporative cooling\test sim\trapthennot\timestep{t}.png'.format(t=t))
-        
+            
+            print('~~~~~~~~~~~~~~~~~~~End of Timestep~~~~~~~~~~~~~~~~~~~~~~~')
         #print(f'Max x velocity is {np.mean(velocitymax)}')
         #print(f'Min x velocity is {np.mean(velocitymin)}')
             
@@ -691,7 +717,7 @@ class Environment:
         t = float(0) #ensures the value for t is treated as a float to avoid compatibility conditons
         
         for i in self.particles: #looping through all the particles in the system
-            r_vals.append(Particle.mag_r(i))  #to append the magnitude radius to the r_vals array
+            r_vals.append(Particle.mag_r(i))  #to append the inital magnitude radius to the r_vals array, to define the intial cut-off radius 
 
         cut_off = max(r_vals) #setting the cut-off point for minimum radius from the paricles as an arbitrary max value of the r_vals
         evap_times = np.linspace(0, Nt, int(Nt/(therm_time)), endpoint=False)#defining the specific timesteps we want to do evaporative cooling at
@@ -824,10 +850,10 @@ class Environment:
     
                         
 env = Environment(0.002,10**-6,60,60,60) #L, T, omega
-env.Create_Particle(20) #N
+env.Create_Particle(75) #N
 env.Create_Cell(5) #Ncell
 #env.Check_cells()
-env.time_evolve_sorting(0.0001, 10, 20, 5) #dt, Nt, N, Ncell
+env.time_evolve_sorting_and_evap(0.0001, 45, 75, 5, 3, 0.90) #dt, Nt, N, Ncell, therm_time, rate of evap
 #env.time_evolve_evap(0.0001, 200, 10000, 5, 0.97) #dt, Nt, N, evap_timestep, rate_of_evap
 #env.time_evolve_TOF(0.0001, 1000, np.size(env.particles)) #dt, Nt, N
 #env.collisons(0.0001, 5) #dt, Ncell

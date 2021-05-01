@@ -17,7 +17,7 @@ import random
 
 
 #comment this in to set the random number generators, keep it repeatable
-np.random.seed(19)
+#np.random.seed(19)
 
 ####################################################################################
 
@@ -124,6 +124,11 @@ class Cell:
         self.particleno = []
         self.subcellspace = []
         
+        self.testedparticle = []
+        self.collideparticle = []
+
+        self.celldensity = []
+        
 ########################################################################################################        
      
 class Environment: 
@@ -141,9 +146,18 @@ class Environment:
      #  self.temp_array = []
         self.space = [] #array to store the subcells
         self.cross_sect = 10**-16 #just placeholder values- this is from 4*pi*a^2 using a for Rb 
-        self.vr_max = 0.05 #from those very brief tests
+        self.vr_max = 0.5 #from those very brief tests
         self.N_collisions = [] #an empty array to store the total number of collisions per timestep
+        self.subcell_occ = []
+        self.cellocc = []
         
+        self.avgcelldens = [] #these ones are for calculating the collision time
+        self.celldenssd = []
+        self.avgcellrelvel = []
+        self.cellrelvelsd = []
+        
+        self.rmsvelx = []
+        self.rmsspeed = []
     
     def Create_Particle(self, N):
         '''Function to create N particles and initialise their r and v coordinates. 
@@ -195,26 +209,44 @@ class Environment:
     
 
     def create_subcells(self, Ncell_i, t):
-        countatomsappend= []
-        countatomsloop= [] #again these arrays are just to check
+       # countatomsappend= []
+       # countatomsloop= [] #again these arrays are just to check
         
         self.sort_atoms_again(Ncell_i) #sort atoms into the big cells- should also update the cell population no 
         
         for c in self.space: #loop through all the large cells   
+            self.cellocc.append(np.size(c.stored_atoms))
+            c.celldensity.append(np.size(c.stored_atoms)/((self.L/Ncell_i)**3)) #calc the density of the cell at this timestep and append into the cell density array
+            
             #Only make new cells if we needed to- would need to access infomation about previous timestep
             if t==0 or c.particleno[int(t-1)] != c.particleno[int(t)]: 
                 c.subcellspace.clear() #only clear subcells and make new ones if the number of atoms in cell is different than it was before, otherwise just use the old cells
                 
-                if np.size(c.stored_atoms) > 20: #determining no. of subcells needed based on how many atoms in cell
+                if np.size(c.stored_atoms) > 1000: #determining no. of subcells needed based on how many atoms in cell
+                    c.subcellno = 9
+                elif 1000 >= np.size(c.stored_atoms) > 500:
+                    c.subcellno = 7
+                elif 500 >= np.size(c.stored_atoms) > 100:
                     c.subcellno = 5
-                elif 20 >= np.size(c.stored_atoms) > 15:
-                    c.subcellno = 4
-                elif 15 >= np.size(c.stored_atoms) > 10:
+                elif 100 >= np.size(c.stored_atoms) > 50:
                     c.subcellno = 3
-                elif 10 >= np.size(c.stored_atoms) > 5:
-                    c.subcellno = 2
+                elif 50 >= np.size(c.stored_atoms)>= 5:
+                    c.subcellno = 2 
                 elif 5 >= np.size(c.stored_atoms)>= 0:
-                    c.subcellno = 1 
+                    c.subcellno = 1
+                    
+                #if np.size(c.stored_atoms) > 100: #determining no. of subcells needed based on how many atoms in cell
+                #    c.subcellno = 9
+                #elif 100 >= np.size(c.stored_atoms) > 50:
+                #    c.subcellno = 6
+                #elif 50 >= np.size(c.stored_atoms) > 20:
+                #    c.subcellno = 5
+                #elif 20 >= np.size(c.stored_atoms) > 10:
+                #    c.subcellno = 3
+                #elif 10 >= np.size(c.stored_atoms)>= 5:
+                #    c.subcellno = 2 
+                #elif 5 >= np.size(c.stored_atoms)>= 0:
+                #    c.subcellno = 1
                 
                 #then need to actually create the subcells using these allocations
                 for x in range(c.subcellno):
@@ -231,9 +263,9 @@ class Environment:
                     for n in c.stored_atoms: #loop through atoms in the specific cell we're considering
                         if s.centre_x - self.L/(2*Ncell_i*c.subcellno) < n.x <= s.centre_x + self.L/(2*Ncell_i*c.subcellno)  and s.centre_y - self.L/(2*Ncell_i*c.subcellno) < n.y <= s.centre_y + self.L/(2*Ncell_i*c.subcellno) and s.centre_z - self.L/(2*Ncell_i*c.subcellno) < n.z <= s.centre_z + self.L/(2*Ncell_i*c.subcellno):
                             s.stored_atoms.append(n) #append the atom into the subcell's stored atoms array if it's in the subcell
-
-                    countatomsappend.append(np.size(s.stored_atoms)) #just here to checl
-
+                    
+                    #countatomsappend.append(np.size(s.stored_atoms)) #just here to checl
+                    self.subcell_occ.append(np.size(s.stored_atoms))
                     
             else: #ie if we're not making fresh subcells
                 for s in c.subcellspace: #loop through all subcells in the cell
@@ -242,25 +274,35 @@ class Environment:
                         if s.centre_x - self.L/(2*Ncell_i*c.subcellno) < n.x <= s.centre_x + self.L/(2*Ncell_i*c.subcellno)  and s.centre_y - self.L/(2*Ncell_i*c.subcellno) < n.y <= s.centre_y + self.L/(2*Ncell_i*c.subcellno) and s.centre_z - self.L/(2*Ncell_i*c.subcellno) < n.z <= s.centre_z + self.L/(2*Ncell_i*c.subcellno):
                                 s.stored_atoms.append(n) #append atoms into the right subcells
                     
-                    countatomsloop.append(np.size(s.stored_atoms)) #just here to check
-              
-        print(f'APPEND  atoms as counted in the subcell array: {np.sum(countatomsappend)}')
-        print(f'entries in subcell count atoms array: {np.size(countatomsappend)}')
-        print(f'LOOP    atoms as counted in the subcell array: {np.sum(countatomsloop)}')
-        print(f'entries in subcell count atoms array: {np.size(countatomsloop)}')
+                    #countatomsloop.append(np.size(s.stored_atoms)) #just here to check
+                    self.subcell_occ.append(np.size(s.stored_atoms))
+        #print(f'APPEND  atoms as counted in the subcell array: {np.sum(countatomsappend)}')
+        #print(f'entries in subcell count atoms array: {np.size(countatomsappend)}')
+        #print(f'LOOP    atoms as counted in the subcell array: {np.sum(countatomsloop)}')
+        #print(f'entries in subcell count atoms array: {np.size(countatomsloop)}')
         
 
     def check_subcells(self, Ncell_i):
         counting_subcells = []
-        #fig = plt.figure(figsize=(3,3))
-        #gs = gridspec.GridSpec(1,1)
-        #ax1 = fig.add_subplot(gs[0])
-        #ax1.set_ylim(-self.L/2,self.L/2) #sets the dimensions of the axes to be the same as the box
-        #ax1.set_xlim(-self.L/2,self.L/2)
+        fig = plt.figure(figsize=(4,4))
+        gs = gridspec.GridSpec(1,1)
+        ax1 = fig.add_subplot(gs[0])
+        ax1.set_ylim(-self.L/2,self.L/2) #sets the dimensions of the axes to be the same as the box
+        ax1.set_xlim(-self.L/2,self.L/2)
+        ax1.set_xlabel('x (m)')
+        ax1.set_ylabel('y (m)')
         #print(self.space)
-        #b = 3
-        #for c in self.space[b].subcellspace:
-        #    ax1.scatter(c.centre_x, c.centre_y)
+        w = [9,10,11,12,13,14,15,16,17]
+        for b in w:
+            for c in self.space[b].subcellspace:
+                #ax1.scatter(c.centre_y, c.centre_z)
+                cenx = c.centre_y - self.L/(2*Ncell_i*self.space[b].subcellno) #+self.L/(2*Ncell_i*self.space[b].subcellno) 
+                ceny = c.centre_z - self.L/(2*Ncell_i*self.space[b].subcellno) #+self.L/(2*Ncell_i*self.space[b].subcellno) 
+            
+                ax1.add_patch(Rectangle((cenx, ceny), self.L/(Ncell_i*self.space[b].subcellno), self.L/(Ncell_i*self.space[b].subcellno), fill=False, ls='-', color='gray'))
+        for n in self.particles:
+            ax1.scatter(n.x, n.y, c='b', s=2)
+        
         for x in self.space:
             nosubcells = np.size(x.subcellspace)
             counting_subcells.append(nosubcells)
@@ -396,6 +438,10 @@ class Environment:
                         c_r_mag = np.sqrt(c_r[0]**2 + c_r[1]**2 + c_r[2]**2)
                         R_f = random.random() #choosing a random value between 0 and 1 used for the acceptance-rejection method for collisions 
                         
+                        w.testedparticle.append(c_r_mag) #append the relative velocity into testedparticle array of the large cell
+                        #c.testedparticlesc.append(c_r_mag)
+    
+                        
                         if (c_r_mag)/(self.vr_max) < R_f: # acceptance-rejection method condition for collision to be accepted
                             
                             c.coll_atoms.append(atom_1) #appending the accepted atom_1 for collision to a seperate array for atoms that have/will collide
@@ -406,6 +452,10 @@ class Environment:
                             c_m = (m1*atom_1.v + m2*atom_2.v)/(m1+m2) #determining the CoM velocity 
                              
                             atom_1.v, atom_2.v = env.rel_vel_final(atom_1, atom_2, c_m, c_r_mag)
+                            
+                            #w.collideparticle.append(c_r_mag)
+                         #   c.collideparticlesc.append(c_r_mag)
+                            #self.allparticlevr.append(c_r_mag)
                             
                             print('collision goes ahead!')
                             n_coll_cell +=1 #increasing the collision counter for this cell
@@ -428,15 +478,27 @@ class Environment:
 
 
 
-           
+    def getrms(self):
+        vel_x =[]
+        speed = []
+        for i in self.particles:
+            vel_x.append(i.vx**2)
+            speed.append((Particle.mag_vr(i))**2)
+        rmsvelx = np.sqrt(np.mean(vel_x))
+        rmsspeed = np.sqrt(np.mean(speed))
+            
+        env.rmsvelx.append(rmsvelx)
+        env.rmsspeed.append(rmsspeed)
             
     def histogram(self, N, Nt, dt, label):
         '''Function to plot a histogram with associated Gaussian distribution.
         Displays the mean and standard deviation of this Gaussian distribution on the graph.'''
         
         to_plot = [] #empty array
+        rms =[]
         for i in self.particles:
             to_plot.append(Particle.mag_vr(i)) #select which values to plot, and append to the array
+            rms.append((Particle.mag_vr(i))**2)
         fig = plt.figure(figsize=(8,3))
         gs = gridspec.GridSpec(1,1)
         ax2 = fig.add_subplot(gs[0])
@@ -448,6 +510,8 @@ class Environment:
         x1 = np.linspace(min(to_plot), max(to_plot), 100)
         dx1 = result1[1][1] - result1[1][0]
         scale1 = len(to_plot)*dx1 #scaling the curves to match the histogram
+        
+        rootmeansquare = np.sqrt(np.mean(rms))
         
         #plotting a Gaussian of the results, for single direction 
         #ax2.plot(x1, scipy.stats.norm.pdf(x1, mean1, sigma1)*scale1, color='g')
@@ -462,12 +526,137 @@ class Environment:
         params = scipy.stats.maxwell.fit(to_plot, floc=0) 
         ax2.plot(x1, scipy.stats.maxwell.pdf(x1, *params)*scale1)
         ax2.set_xlabel('Speed of particles')
-        ax2.text(max(result1[1])*0.85, max(result1[0])*0.95, 'mean = {:.3g}'.format(mean1))
-        ax2.text(max(result1[1])*0.85, max(result1[0])*0.75, 'sd = {:.3g}'.format(sigma1))
-        ax2.text(max(result1[1])*0.85, max(result1[0])*0.55, '{}'.format(label))
+        #ax2.text(max(result1[1])*0.85, max(result1[0])*0.95, 'mean = {:.3g}'.format(mean1))
+        #ax2.text(max(result1[1])*0.85, max(result1[0])*0.75, 'sd = {:.3g}'.format(sigma1))
+        #ax2.text(max(result1[1])*0.85, max(result1[0])*0.55, '{}'.format(label))
+        ax2.text(max(result1[1])*0.85, 110, 'mean = {:.3g}'.format(mean1))
+        ax2.text(max(result1[1])*0.85, 90, 'sd = {:.3g}'.format(sigma1))
+        ax2.text(max(result1[1])*0.85, 70, '{}'.format(label))
+        ax2.text(max(result1[1])*0.85, 50, 'rms = {:.4g}'.format(rootmeansquare))
         ax2.set_xlim(0,0.06)
-        ax2.set_ylim(0,55)
+        ax2.set_ylim(0,210)
         
+        
+        
+    def histogram1D(self, N, Nt, dt, label):
+        '''Function to plot a histogram with associated Gaussian distribution.
+        Displays the mean and standard deviation of this Gaussian distribution on the graph.'''
+        
+        to_plot = [] #empty array
+        rms = []
+        for i in self.particles:
+            to_plot.append(i.vx) #select which values to plot, and append to the array
+            rms.append((i.vx)**2)
+        
+        fig = plt.figure(figsize=(8,3))
+        gs = gridspec.GridSpec(1,1)
+        ax2 = fig.add_subplot(gs[0])
+        #set title with the simulation parameters to keep track of the data
+        ax2.set_title(f'T={self.Ti}, omega={(self.omega_x, self.omega_y, self.omega_z)}, N={np.size(self.particles)}, Nt={Nt}, dt= {dt}')
+        result1 = ax2.hist(to_plot, bins=100, color='g') #plotting the histogram
+        mean1 = np.mean(to_plot)
+        sigma1 = np.sqrt(np.var(to_plot))
+        x1 = np.linspace(min(to_plot), max(to_plot), 100)
+        dx1 = result1[1][1] - result1[1][0]
+        scale1 = len(to_plot)*dx1 #scaling the curves to match the histogram
+        
+        rootmeansquare = np.sqrt(np.mean(rms))
+        
+        #plotting a Gaussian of the results, for single direction 
+        ax2.plot(x1, scipy.stats.norm.pdf(x1, mean1, sigma1)*scale1, color='orange')
+        ax2.set_xlabel('x velocity of particles (m/s)')
+        ax2.set_ylim(0,210)
+        ax2.set_xlim(-0.05,0.05)
+
+        ax2.text(max(result1[1])*0.85, 110, 'mean = {:.3g}'.format(mean1))
+        ax2.text(max(result1[1])*0.85, 90, 'sd = {:.3g}'.format(sigma1))
+        ax2.text(max(result1[1])*0.85, 70, '{}'.format(label))
+        ax2.text(max(result1[1])*0.85, 50, 'rms = {:.4g}'.format(rootmeansquare))
+
+    def histogramspace(self, N, Nt, dt, label):
+        '''Function to plot a histogram with associated Gaussian distribution.
+        Displays the mean and standard deviation of this Gaussian distribution on the graph.'''
+        
+        xarray = [] #empty array
+        rmsx = []
+        rarray = [] #empty array
+        rmsr = []
+        for i in self.particles:
+            xarray.append(i.x) #select which values to plot, and append to the array
+            rmsx.append((i.x)**2)
+            rarray.append(Particle.mag_r(i)) #select which values to plot, and append to the array
+            rmsr.append((Particle.mag_r(i))**2)
+        
+        fig = plt.figure(figsize=(8,3))
+        gs = gridspec.GridSpec(1,1)
+        ax2 = fig.add_subplot(gs[0])
+        #set title with the simulation parameters to keep track of the data
+        ax2.set_title(f'T={self.Ti}, omega={(self.omega_x, self.omega_y, self.omega_z)}, N={np.size(self.particles)}, Nt={Nt}, dt= {dt}')
+        result1 = ax2.hist(xarray, bins=100, color='g') #plotting the histogram
+        mean1 = np.mean(xarray)
+        sigma1 = np.sqrt(np.var(xarray))
+        x1 = np.linspace(min(xarray), max(xarray), 100)
+        dx1 = result1[1][1] - result1[1][0]
+        scale1 = len(xarray)*dx1 #scaling the curves to match the histogram
+        rootmeansquare = np.sqrt(np.mean(rmsx))
+        
+        #plotting a Gaussian of the results, for single direction 
+        ax2.plot(x1, scipy.stats.norm.pdf(x1, mean1, sigma1)*scale1, color='orange')
+        ax2.set_xlabel('x position of particles (m)')
+        #ax2.set_ylim(0,210)
+        ax2.set_xlim(-0.0005,0.0005)
+        ax2.text(max(result1[1])*0.85, 110, 'mean = {:.3g}'.format(mean1))
+        ax2.text(max(result1[1])*0.85, 90, 'sd = {:.3g}'.format(sigma1))
+        ax2.text(max(result1[1])*0.85, 70, '{}'.format(label))
+        ax2.text(max(result1[1])*0.85, 50, 'rms = {:.4g}'.format(rootmeansquare))
+        
+        
+        #fig15 = plt.figure(figsize=(6,4))
+        #gs15 = gridspec.GridSpec(1,1)
+        #ax15 = fig15.add_subplot(gs15[0])
+        ##set title with the simulation parameters to keep track of the data
+        #ax15.set_title(f'T={self.Ti}, omega={(self.omega_x, self.omega_y, self.omega_z)}, N={np.size(self.particles)}, Nt={Nt}, dt= {dt}')
+        #gaussian = scipy.stats.norm.pdf(x1, mean1, sigma1)
+        #maxgaussian = np.max(gaussian)
+        #ax15.plot(x1, scipy.stats.norm.pdf(x1, mean1, sigma1)*(1/maxgaussian), label='Actual dist.')#*scale1, color='g')
+        #coeff = 100*np.sqrt((85*10**(-27)*40**2)/(8*(np.pi**3)*k*10**(-6)))
+        #test_gaussian = np.exp(-(85*10**(-27)*(314**2)*(x1)**2)/(2*k*10**(-6)))
+        #ax15.plot(x1,test_gaussian, color='r', label='Expected dist.')
+        #ax15.set_xlabel('x position of particles (m)', fontsize='12')
+        #ax15.set_xlim(-0.00015,0.00015)
+        #ax15.tick_params(axis="x", labelsize=10)
+        #ax15.tick_params(axis="y", labelsize=10)
+        #ax15.legend()
+        
+        
+        
+        
+        
+        fig1 = plt.figure(figsize=(8,3))
+        gs1 = gridspec.GridSpec(1,1)
+        ax1 = fig1.add_subplot(gs1[0])
+        #set title with the simulation parameters to keep track of the data
+        ax1.set_title(f'T={self.Ti}, omega={(self.omega_x, self.omega_y, self.omega_z)}, N={np.size(self.particles)}, Nt={Nt}, dt= {dt}')
+        result2 = ax1.hist(rarray, bins=100) #plotting the histogram
+        mean2 = np.mean(rarray)
+        sigma2 = np.sqrt(np.var(rarray))
+        x2 = np.linspace(min(rarray), max(rarray), 100)
+        dx2 = result2[1][1] - result2[1][0]
+        scale2 = len(rarray)*dx2 #scaling the curves to match the histogram
+        
+        rootmeansquare1 = np.sqrt(np.mean(rmsx))
+        
+        #plotting a Gaussian of the results, for single direction 
+        params = scipy.stats.maxwell.fit(rarray, floc=0) 
+        ax1.plot(x2, scipy.stats.maxwell.pdf(x2, *params)*scale2)
+        ax1.set_xlabel('Radial position of particles (m)')
+        #ax1.set_ylim(0,210)
+        ax1.set_xlim(0,0.0002)
+
+        ax1.text(max(result2[1])*0.85, 110, 'mean = {:.3g}'.format(mean2))
+        ax1.text(max(result2[1])*0.85, 90, 'sd = {:.3g}'.format(sigma2))
+        ax1.text(max(result2[1])*0.85, 70, '{}'.format(label))
+        ax1.text(max(result2[1])*0.85, 50, 'rms = {:.4g}'.format(rootmeansquare1))
         
     def histogram_TOF(self, N, Nt, dt, label, TOF):
         '''Function to plot a histogram with associated Gaussian distribution.
@@ -591,9 +780,9 @@ class Environment:
             
             create_graph2d = False #set to true to plot a xy slice of the particle positions for each time step
             create_graph3d = False #set to true to plot the particle positions in 3D for each time step
-            save_images = False #set to true to save the associated images to the specified file path
+            save_images = True #set to true to save the associated images to the specified file path
             create_histograms = True #set to true to plot histograms before and after the time loop
-            plot_sigma = False #set to true to plot the standard deviation of r or v over time
+            plot_sigma = True #set to true to plot the standard deviation of r or v over time
             checking_cube = False #set to true to plot xy, xz,yz slices with the cell chosen marked- particles in that cell are marked in pink
             c=0 # the index of the cell we're checking
             
@@ -602,13 +791,18 @@ class Environment:
             sigma_avg = []
             num_atoms = []
             r_vals = [] #defining an empty array for the magnitude radius values
+            r_vals_rms = []
             
             t = float(0) #ensures the value for t is treated as a float to avoid compatibility conditons
             
             for i in self.particles: #looping through all the particles in the system
                 r_vals.append(Particle.mag_r(i))  #to append the magnitude radius to the r_vals array
-    
-            cut_off = max(r_vals) #setting the cut-off point for minimum radius from the paricles as an arbitrary max value of the r_vals
+                r_vals_rms.append((Particle.mag_r(i))**2)
+                
+            initialRrms = np.sqrt(np.mean(r_vals_rms))    
+                
+            cut_off = initialRrms*0.9999 #setting the cut-off point for minimum radius from the paricles as an arbitrary max value of the r_vals
+            #cut_off = max(r_vals)
             evap_times = np.linspace(0, Nt, int(Nt/(therm_time)), endpoint=False)#defining the specific timesteps we want to do evaporative cooling at
 
             print(f'Starting Cut-Off is {cut_off}')
@@ -635,17 +829,19 @@ class Environment:
                     ax1.set_xlim(-self.L/2,self.L/2)
                     ax1.set_zlim(-self.L/2,self.L/2)
                     ax1.text(self.L/3,-self.L/3, self.L/3, f'{t+1}') # stating on the graph the time-step of the simulation graph
-                if create_graph2d and t%10 == 0:
+                if create_graph2d:# and t%10 == 0:
                     fig = plt.figure(figsize=(3,3))
                     gs = gridspec.GridSpec(1,1)
                     ax1 = fig.add_subplot(gs[0])
-                    ax1.set_ylim(-self.L/2,self.L/2) #sets the dimensions of the axes to be the same as the box
-                    ax1.set_xlim(-self.L/2,self.L/2)
-                    ax1.set_xlabel('x')
-                    ax1.set_ylabel('y')
+                    ax1.set_ylim(-self.L/(2*0.001),self.L/(2*0.001)) #sets the dimensions of the axes to be the same as the box
+                    ax1.set_xlim(-self.L/(2*0.001),self.L/(2*0.001))
+                    ax1.set_xlabel('x (mm)', fontsize='14')
+                    ax1.set_ylabel('y (mm)', fontsize='14')
+                    ax1.tick_params(axis="x", labelsize=12)
+                    ax1.tick_params(axis="y", labelsize=12)
                     ax1.text(self.L/3,-self.L/3, f'{t+1}') #print the timestep number on the graph
                     curr_num_atoms = np.size(self.particles)
-                    ax1.text(0,-1.5*(self.L/2), f'current total atoms = {curr_num_atoms}')
+                    #ax1.text(0,-1.5*(self.L/2), f'current total atoms = {curr_num_atoms}')
                 
                     if checking_cube:
                         #plots a square showing the boundaries of the chosen cell. The atoms in that cell's array are indicated in pink, cell centre marked with black cross.
@@ -681,8 +877,8 @@ class Environment:
                     if create_graph3d and t%10 == 0:
                         ax1.scatter3D(i.x, i.y, i.z, c='b', s=2)
                         ax1.view_init(40, 0)
-                    if create_graph2d and t%10 == 0:
-                        ax1.scatter(i.x, i.y, c='b', s=2)
+                    if create_graph2d:
+                        ax1.scatter(i.x/0.001, i.y/0.001, c='b', s=2)
                         if checking_cube: #this is the section of the code that marks the atoms in the cell's array pink
                             for n in self.space[c].stored_atoms:
                                 ax1.scatter(n.x, n.y, c='m', s=6)
@@ -695,25 +891,28 @@ class Environment:
                             for n in self.space[c].stored_atoms:
                                 ax3.scatter(n.y, n.z, c='m', s=6)
                     
-                    sigma_variable.append(Particle.mag_r(i))
-                    sigma_variablex.append(i.x) #append the r/v values into the empty array
-                    sigma_variabley.append(i.y)
-                    sigma_variablez.append(i.z)
+                    sigma_variable.append(Particle.mag_r(i)**2)
+                   # sigma_variablex.append(i.x) #append the r/v values into the empty array
+                    #sigma_variabley.append(i.y)
+                    #sigma_variablez.append(i.z)
                     
             
                     #alter the positions of the particles according to their velocities
                     Particle.drift(i, dt)
                     #alter the velocities of the particles, account for the trapping potential
+                    
                     Particle.potential_v_change(i, self.omega_x, self.omega_y, self.omega_z, dt)
                     
                 #self.sort_atoms_again(Ncell_i) #sorting the atoms- only keeping atoms that are still in the cell at the end of the timestep
                 #print(f'atoms sorted t={t}!')               
                 #env.collisons(dt, Ncell_i) #dt, Ncell
                 self.create_subcells(Ncell_i, t)
+                #self.check_subcells(Ncell_i)
                 print(f'sorted atoms t={t}!')
                 self.collisons_subcell(dt, Ncell_i)
                 
                 if np.any(t == evap_times): #if statement, a conditon to see t is equal to any of the evap_times
+                #if 20<t<60 and t%2==0:
                     print(f'time to evap t={t}!')
                     for i in self.particles: #looping through all partilces
                         if Particle.mag_r(i) >= cut_off: #if statement, a condition to see if magnitude radius of the partilce is greater than or equal to the cut_off radius
@@ -730,25 +929,47 @@ class Environment:
                     cut_off = cut_off*rate_of_evap #outside of this if-else statment, once all particles have been looped/checked against the statment, we redefine the cut-off radius at a rate defined in the funtion variable
                     #print(f'Setting new cut-off as {cut_off}')
                 if create_histograms and t%2 == 0:
-                        self.histogram(N, Nt, dt, f'{t+1}') #create a histogram of the final value
+                        self.histogram(N, Nt, dt, f'{t+1}')
+                        plt.savefig(r'C:\\Users\Bethan\Documents\evaporative cooling\test sim\biggestrunapril30\timestep{t}.png'.format(t=t))
+                        self.histogram1D(N, Nt, dt, f'{t+1}')
+                        plt.savefig(r'C:\\Users\Bethan\Documents\evaporative cooling\test sim\biggestrunapril30a\timestep{t}.png'.format(t=t))
+                        self.histogramspace(N, Nt, dt, f'{t+1}')
                 if save_images and t%2 == 0: #save the graphs as they are created to the specified file
-                        plt.savefig(r'C:\\Users\Bethan\Documents\evaporative cooling\test sim\bigrunapril54\timestep{t}.png'.format(t=t))
+                        plt.savefig(r'C:\\Users\Bethan\Documents\evaporative cooling\test sim\biggestrunapril30b\timestep{t}.png'.format(t=t))
                 
+                self.getrms()
                 
                 print(f'~~~~~~~~~~~~~~~~~~~End of Timestep {t} of {Nt}~~~~~~~~~~~~~~~~~~~~~~~')
                 t+=1 #ensures that time-steps progress by one every full cycle of checks 
                     
-                sigmaxdt = np.sqrt(np.var(sigma_variablex)) 
-                sigmaydt = np.sqrt(np.var(sigma_variabley))
-                sigmazdt = np.sqrt(np.var(sigma_variablez))
-                sigmadt_avg = (1/3)*(sigmaxdt + sigmaydt + sigmazdt)
-                sigmadt = np.sqrt(np.var(sigma_variable)) #calculate the sd of the r/v values for this timestep
+               # sigmaxdt = np.sqrt(np.var(sigma_variablex)) 
+               # sigmaydt = np.sqrt(np.var(sigma_variabley))
+               # sigmazdt = np.sqrt(np.var(sigma_variablez))
+               # sigmadt_avg = (1/3)*(sigmaxdt + sigmaydt + sigmazdt)
+                sigmadt = np.sqrt(np.mean(sigma_variable)) #calculate the sd of the r/v values for this timestep
                 sigma.append(sigmadt) #append it to the empty array created at the start
-                sigma_avg.append(sigmadt_avg)
+               # sigma_avg.append(sigmadt_avg)
                 num_atoms.append(np.size(self.particles))
-                    
+                
+                
+                
+                
                 if save_images: #save the graphs as they are created to the specified file
                      plt.savefig(r'C:\\Users\Bethan\Documents\evaporative cooling\test sim\bigrunapril4\timestep{t}.png'.format(t=t))
+             
+            #calc averages etc
+            for c in self.space:
+                    avgdensity = np.mean(c.celldensity)
+                    densitysd = np.sqrt(np.var(c.celldensity))
+                    avgrelvel = np.mean(c.testedparticle)
+                    relvelsd = np.sqrt(np.var(c.testedparticle))
+                    self.avgcelldens.append(avgdensity)
+                    self.celldenssd.append(densitysd)
+                    self.avgcellrelvel.append(avgrelvel)
+                    self.cellrelvelsd.append(relvelsd)    
+                
+                
+                
                 
             print(f'total number of collsions: {np.sum(self.N_collisions)}')
             print(f'total number of particles remaining: {np.size(env.particles)}')
@@ -762,7 +983,7 @@ class Environment:
                 gs = gridspec.GridSpec(1,1)
                 ax = fig.add_subplot(gs[0])
                 ax.set_xlabel('Time /s')
-                ax.set_ylabel('Sigma_x /m')
+                ax.set_ylabel('RMS radius /m')
                 time = np.arange(len(sigma))*dt
                 ax.plot(time, sigma , color='g')
                 #print(f'Mean sigma x: {np.mean(sigmax)}')
@@ -913,7 +1134,7 @@ class Environment:
 ##################################################################################################################################################################
             
             
-    def time_evolve_TOF(self,dt,Nt,N):
+    def time_evolve_TOF(self,dt,Nt,N, Ncell_i):
         '''Runs the simulation through Nt timesteps, of individual size dt. For each timestep
         alters the positions of the particles according to their velocities. Then 
         changes the velocities of the particles to account for the influence of the trapping 
@@ -962,6 +1183,11 @@ class Environment:
                 Particle.drift(i, dt) 
                 #no potential involved as the trap is off- particles in free expansion
                 
+                
+            self.create_subcells(Ncell_i, t)
+            print(f'sorted atoms t={t}!')
+            self.collisons_subcell(dt, Ncell_i)
+            
             sigmadt = np.sqrt(np.var(sigma_variable)) #calculate the sd of the r/v values for this timestep
             sigma.append(sigmadt) #append it to the empty array created at the start
                 
@@ -1080,7 +1306,7 @@ class Environment:
                    
                     
                 cut_off = cut_off*rate_of_evap #outside of this if-else statment, once all particles have been looped/checked against the statment, we redefine the cut-off radius at a rate defined in the funtion variable
-                #print(f'Setting new cut-off as {cut_off}')
+               
                 if create_histograms:
                     self.histogram(N, Nt, dt, f'{t+1}') #create a histogram of the final value
                 if save_images: #save the graphs as they are created to the specified file
@@ -1142,16 +1368,36 @@ class Environment:
     
 #########################################################################################
             
-N = 5000
+N = 6000
 Nt = 1
 Ncell = 3
                         
-env = Environment(0.002,10**-6,60,60,60) #L, T, omega
+env = Environment(0.0004,10**-6,750,750,750) #L, T, omega
 env.Create_Particle(N) #N
 env.Create_Cell(Ncell) #Ncell
 #env.Check_cells()
-#env.time_evolve_sorting(0.0001, Nt, N, Ncell) #dt, Nt, N, Ncell
-env.time_evolve_sorting_and_evap(0.0005, Nt, N, Ncell, 1, 0.95) #dt, Nt, N, Ncell, therm_time, rate of evap
+    #env.time_evolve_sorting(0.0001, Nt, N, Ncell) #dt, Nt, N, Ncell
+env.time_evolve_sorting_and_evap(0.0004, Nt, N, Ncell, 2, 0.9999) #dt, Nt, N, Ncell, therm_time, rate of evap
 #env.time_evolve_evap(0.0001, 200, 10000, 5, 0.97) #dt, Nt, N, evap_timestep, rate_of_evap
-#env.time_evolve_TOF(0.0001, 1000, np.size(env.particles)) #dt, Nt, N
+#env.time_evolve_TOF(0.0001, 25, np.size(env.particles), Ncell) #dt, Nt, N
 print(env.N_collisions)
+
+print('average cell densities')
+print(env.avgcelldens)
+print('sd of cell densities')
+print(env.celldenssd)
+print('average cell rel vel')
+print(env.avgcellrelvel)
+print('sd in cell rel vel')
+print(env.cellrelvelsd)
+
+print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+print('rms speed')
+print(env.rmsspeed)
+print('rms x vel')
+print(env.rmsvelx)
+#print(env.subcell_occ)
+#print(f'number of subcells= {np.size(env.subcell_occ)}')
+#print(f'Max occupancy of subcell = {np.max(env.subcell_occ)}')
+#print(f'mean subcell occ= {np.mean(env.subcell_occ)}')
+#print(env.cellocc)
